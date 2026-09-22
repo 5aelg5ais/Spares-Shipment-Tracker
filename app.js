@@ -5,7 +5,7 @@
 const LOCAL_STORAGE_KEY = 'spares_shipments_vanilla_data_v1';
 const CONFIG_STORAGE_KEY = 'spares_vanilla_config_v1';
 
-// Initial Mock Seed Data matching Screenshots
+// Initial Mock Seed Data matching original Vite React prototype
 const INITIAL_SHIPMENTS = [
   {
     id: 'ship-005',
@@ -193,6 +193,26 @@ function getCurrentTimestamp() {
     ', ' + now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
+// Icon SVG helper functions
+function getBellIcon(active) {
+  if (active) {
+    return `<svg class="icon-sm text-slate-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
+  }
+  return `<svg class="icon-sm text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="M4.2 4.2l15.6 15.6"/><path d="M6 8a6 6 0 0 1 8.6-5.4"/><path d="M18 8a6 6 0 0 1-.3 1.9"/><path d="M13.7 13.7A6 6 0 0 1 6 8"/><path d="M3 17h14"/></svg>`;
+}
+
+function getRotateCwIcon() {
+  return `<svg class="icon-sm text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>`;
+}
+
+function getEditIcon() {
+  return `<svg class="icon-sm text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 3a3 3 0 0 1 4.24 4.24L7.5 21.76 2 23l1.24-5.5L18 3z"/></svg>`;
+}
+
+function getTrashIcon() {
+  return `<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
+}
+
 // --- Render Engine ---
 function renderApp() {
   renderHeaderAndMetrics();
@@ -203,39 +223,49 @@ function renderApp() {
 }
 
 function renderHeaderAndMetrics() {
-  document.getElementById('current-mode-label').textContent = backendConfig.mode.toUpperCase();
-  document.getElementById('metric-total').textContent = shipments.length;
-  document.getElementById('metric-active').textContent = shipments.filter(s => s.status !== 'Delivered').length;
-  document.getElementById('metric-delayed').textContent = shipments.filter(s => s.status === 'Delayed').length;
+  const modeLabel = document.getElementById('current-mode-label');
+  if (modeLabel) modeLabel.textContent = (backendConfig.mode || 'mock').toUpperCase();
+
+  const totalEl = document.getElementById('metric-total');
+  const activeEl = document.getElementById('metric-active');
+  const delayedEl = document.getElementById('metric-delayed');
+
+  if (totalEl) totalEl.textContent = shipments.length;
+  if (activeEl) activeEl.textContent = shipments.filter(s => s.status !== 'Delivered').length;
+  if (delayedEl) delayedEl.textContent = shipments.filter(s => s.status === 'Delayed').length;
 }
 
 function populateDropdownFilters() {
   const detSelect = document.getElementById('filter-detachment');
-  const currentDet = detSelect.value;
-  const detachments = Array.from(new Set(shipments.map(s => s.destination).filter(Boolean))).sort();
+  if (detSelect) {
+    const currentDet = detSelect.value;
+    const detachments = Array.from(new Set(shipments.map(s => s.destination).filter(Boolean))).sort();
 
-  detSelect.innerHTML = '<option value="">All Detachments</option>' +
-    detachments.map(d => `<option value="${d}" ${d === currentDet ? 'selected' : ''}>${d}</option>`).join('');
+    detSelect.innerHTML = '<option value="">All Detachments</option>' +
+      detachments.map(d => `<option value="${d}" ${d === currentDet ? 'selected' : ''}>${d}</option>`).join('');
+  }
 
   const statusSelect = document.getElementById('filter-status');
-  const currentSt = statusSelect.value;
-  const statuses = ['Pending Airwaybill', 'Delayed', 'Pending Custom Clearance Letter', 'In-Transit (Air-I)', 'Delivered'];
+  if (statusSelect) {
+    const currentSt = statusSelect.value;
+    const statuses = ['Pending Airwaybill', 'Delayed', 'Pending Custom Clearance Letter', 'In-Transit (Air-I)', 'Delivered'];
 
-  statusSelect.innerHTML = '<option value="">All Statuses</option>' +
-    statuses.map(s => `<option value="${s}" ${s === currentSt ? 'selected' : ''}>${s}</option>`).join('');
+    statusSelect.innerHTML = '<option value="">All Statuses</option>' +
+      statuses.map(s => `<option value="${s}" ${s === currentSt ? 'selected' : ''}>${s}</option>`).join('');
+  }
 }
 
 function getFilteredShipments() {
   return shipments.filter(s => {
     if (activeFilters.searchQuery) {
       const q = activeFilters.searchQuery.toLowerCase().trim();
-      const match = s.iodNumber.toLowerCase().includes(q) ||
-        s.tailNo.toLowerCase().includes(q) ||
-        s.airwaybill.toLowerCase().includes(q) ||
-        s.mpn.toLowerCase().includes(q) ||
-        s.nsn.toLowerCase().includes(q) ||
-        s.destination.toLowerCase().includes(q) ||
-        s.description.toLowerCase().includes(q);
+      const match = (s.iodNumber || '').toLowerCase().includes(q) ||
+        (s.tailNo || '').toLowerCase().includes(q) ||
+        (s.airwaybill || '').toLowerCase().includes(q) ||
+        (s.mpn || '').toLowerCase().includes(q) ||
+        (s.nsn || '').toLowerCase().includes(q) ||
+        (s.destination || '').toLowerCase().includes(q) ||
+        (s.description || '').toLowerCase().includes(q);
       if (!match) return false;
     }
     if (activeFilters.detachment && s.destination !== activeFilters.detachment) return false;
@@ -249,101 +279,108 @@ function renderSelectedShipmentCard() {
   const subtitleEl = document.getElementById('selected-shipment-subtitle');
   const bodyEl = document.getElementById('selected-shipment-body');
 
+  if (!bodyEl) return;
+
   if (!sel) {
-    subtitleEl.textContent = 'No shipment selected';
-    bodyEl.innerHTML = '<div style="grid-column: span 4; text-align: center; color: #94a3b8; padding: 20px;">Select a shipment from the queue below.</div>';
+    if (subtitleEl) subtitleEl.textContent = 'No shipment selected';
+    bodyEl.innerHTML = '<div style="grid-column: span 4; text-align: center; color: #94a3b8; padding: 24px;">Select a shipment from the queue below to inspect details.</div>';
     return;
   }
 
-  subtitleEl.textContent = `${sel.iodNumber} / ${sel.airwaybill || 'N/A'}`;
+  if (subtitleEl) subtitleEl.textContent = `${sel.iodNumber} / ${sel.airwaybill || 'N/A'}`;
 
   bodyEl.innerHTML = `
-    <div className="detail-item">
-      <span className="detail-label">IOD Number</span>
-      <span className="detail-value">${sel.iodNumber}</span>
+    <div class="detail-item">
+      <span class="detail-label">IOD Number</span>
+      <span class="detail-value">${sel.iodNumber}</span>
     </div>
-    <div className="detail-item">
-      <span className="detail-label">A/C Tail No.</span>
-      <span className="detail-value">${sel.tailNo}</span>
+    <div class="detail-item">
+      <span class="detail-label">A/C Tail No.</span>
+      <span class="detail-value">${sel.tailNo}</span>
     </div>
-    <div className="detail-item">
-      <span className="detail-label">Airwaybill</span>
-      <span className="detail-value">${sel.airwaybill || '—'}</span>
+    <div class="detail-item">
+      <span class="detail-label">Airwaybill</span>
+      <span class="detail-value">${sel.airwaybill || '—'}</span>
     </div>
-    <div className="detail-item">
-      <span className="detail-label">Status</span>
-      <span className="detail-value">${sel.status}</span>
+    <div class="detail-item">
+      <span class="detail-label">Status</span>
+      <span class="detail-value">${sel.status}</span>
     </div>
-    <div className="detail-item">
-      <span className="detail-label">Destination Detachment</span>
-      <span className="detail-value">${sel.destination}</span>
+    <div class="detail-item">
+      <span class="detail-label">Destination Detachment</span>
+      <span class="detail-value">${sel.destination}</span>
     </div>
-    <div className="detail-item">
-      <span className="detail-label">Demand Date & Time</span>
-      <span className="detail-value">${sel.demandDateTime}</span>
+    <div class="detail-item">
+      <span class="detail-label">Demand Date & Time</span>
+      <span class="detail-value">${sel.demandDateTime}</span>
     </div>
-    <div className="detail-item">
-      <span className="detail-label">ETD</span>
-      <span className="detail-value">${sel.etd}</span>
+    <div class="detail-item">
+      <span class="detail-label">ETD</span>
+      <span class="detail-value">${sel.etd}</span>
     </div>
-    <div className="detail-item">
-      <span className="detail-label">ETA</span>
-      <span className="detail-value">${sel.eta}</span>
+    <div class="detail-item">
+      <span class="detail-label">ETA</span>
+      <span class="detail-value">${sel.eta}</span>
     </div>
-    <div className="detail-item">
-      <span className="detail-label">MPN</span>
-      <span className="detail-value">${sel.mpn}</span>
+    <div class="detail-item">
+      <span class="detail-label">MPN</span>
+      <span class="detail-value">${sel.mpn}</span>
     </div>
-    <div className="detail-item">
-      <span className="detail-label">NSN</span>
-      <span className="detail-value">${sel.nsn}</span>
+    <div class="detail-item">
+      <span class="detail-label">NSN</span>
+      <span class="detail-value">${sel.nsn}</span>
     </div>
-    <div className="detail-item span-2">
-      <span className="detail-label">Spares Description</span>
-      <span className="detail-value">${sel.description}</span>
+    <div class="detail-item span-2">
+      <span class="detail-label">Spares Description</span>
+      <span class="detail-value">${sel.description}</span>
     </div>
-    <div className="detail-item">
-      <span className="detail-label">Quantity</span>
-      <span className="detail-value">${sel.quantity}</span>
+    <div class="detail-item">
+      <span class="detail-label">Quantity</span>
+      <span class="detail-value">${sel.quantity}</span>
     </div>
-    <div className="detail-item span-3">
-      <span className="detail-label">Remarks</span>
-      <span className="detail-value">${sel.remarks || '—'}</span>
+    <div class="detail-item span-3">
+      <span class="detail-label">Remarks</span>
+      <span class="detail-value">${sel.remarks || '—'}</span>
     </div>
   `;
 }
 
 function renderQueueTable() {
   const tbody = document.getElementById('queue-table-body');
+  if (!tbody) return;
+
   const filtered = getFilteredShipments();
 
   if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 24px;">No matching shipments found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 32px;">No matching shipments found.</td></tr>';
     return;
   }
 
   tbody.innerHTML = filtered.map(item => {
     const isSelected = item.id === selectedId;
     const badgeClass = getStatusBadgeClass(item.status);
-    const bellIcon = item.notificationActive ? '🔔' : '🔕';
+    const bellSvg = getBellIcon(item.notificationActive);
+    const rotateSvg = getRotateCwIcon();
+    const editSvg = getEditIcon();
+    const trashSvg = getTrashIcon();
 
     return `
       <tr class="${isSelected ? 'selected-row' : ''}" data-id="${item.id}">
         <td>
-          <div className="iod-cell-main">${item.iodNumber}</div>
-          <div className="iod-cell-sub">${item.tailNo}</div>
+          <div class="iod-cell-main">${item.iodNumber}</div>
+          <div class="iod-cell-sub">${item.tailNo}</div>
         </td>
         <td>
-          <span className="status-pill ${badgeClass}">${item.status}</span>
+          <span class="status-pill ${badgeClass}">${item.status}</span>
         </td>
         <td>${item.destination}</td>
         <td>${item.eta}</td>
-        <td className="text-right">
-          <div className="action-btn-group" data-id="${item.id}">
-            <button className="btn-icon-action btn-act-bell" title="Toggle Notification">${bellIcon}</button>
-            <button className="btn-icon-action btn-act-status" title="Update Status">🔄</button>
-            <button className="btn-icon-action btn-act-edit" title="Edit Shipment">✏️</button>
-            <button className="btn-icon-action btn-icon-action danger btn-act-delete" title="Delete Shipment">🗑️</button>
+        <td class="text-right">
+          <div class="action-btn-group" data-id="${item.id}">
+            <button type="button" class="btn-icon-action btn-act-bell" title="${item.notificationActive ? 'Disable Notification' : 'Enable Notification'}">${bellSvg}</button>
+            <button type="button" class="btn-icon-action btn-act-status" title="Update Status / Log Event">${rotateSvg}</button>
+            <button type="button" class="btn-icon-action btn-act-edit" title="Edit Shipment">${editSvg}</button>
+            <button type="button" class="btn-icon-action danger btn-act-delete" title="Delete Shipment">${trashSvg}</button>
           </div>
         </td>
       </tr>
@@ -353,20 +390,22 @@ function renderQueueTable() {
 
 function renderHistoryTimeline() {
   const container = document.getElementById('history-timeline-body');
+  if (!container) return;
+
   const sel = shipments.find(s => s.id === selectedId);
 
   if (!sel || !sel.history || sel.history.length === 0) {
-    container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 16px;">No history recorded for this shipment.</div>';
+    container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 20px;">No history recorded for this shipment.</div>';
     return;
   }
 
   container.innerHTML = sel.history.map(e => `
-    <div className="history-item">
-      <div className="history-header">
-        <span className="history-status-title">${e.status}</span>
-        <span className="history-timestamp">${e.timestamp}</span>
+    <div class="history-item">
+      <div class="history-header">
+        <span class="history-status-title">${e.status}</span>
+        <span class="history-timestamp">${e.timestamp}</span>
       </div>
-      <p className="history-desc">${e.description}</p>
+      <p class="history-desc">${e.description}</p>
     </div>
   `).join('');
 }
@@ -374,137 +413,190 @@ function renderHistoryTimeline() {
 // --- Event Handlers & Modal Binding ---
 function setupEventListeners() {
   // Search & Filters
-  document.getElementById('search-input').addEventListener('input', (e) => {
-    activeFilters.searchQuery = e.target.value;
-    renderQueueTable();
-  });
-
-  document.getElementById('filter-detachment').addEventListener('change', (e) => {
-    activeFilters.detachment = e.target.value;
-    renderQueueTable();
-  });
-
-  document.getElementById('filter-status').addEventListener('change', (e) => {
-    activeFilters.status = e.target.value;
-    renderQueueTable();
-  });
-
-  // Table row click & table actions
-  document.getElementById('queue-table-body').addEventListener('click', (e) => {
-    const tr = e.target.closest('tr');
-    if (!tr) return;
-    const id = tr.getAttribute('data-id');
-
-    // Handle action buttons
-    const btnBell = e.target.closest('.btn-act-bell');
-    const btnStatus = e.target.closest('.btn-act-status');
-    const btnEdit = e.target.closest('.btn-act-edit');
-    const btnDelete = e.target.closest('.btn-act-delete');
-
-    if (btnBell) {
-      const item = shipments.find(s => s.id === id);
-      if (item) item.notificationActive = !item.notificationActive;
-      saveShipments();
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      activeFilters.searchQuery = e.target.value;
       renderQueueTable();
-      return;
-    }
+    });
+  }
 
-    if (btnStatus) {
-      openStatusUpdateModal(id);
-      return;
-    }
+  const detSelect = document.getElementById('filter-detachment');
+  if (detSelect) {
+    detSelect.addEventListener('change', (e) => {
+      activeFilters.detachment = e.target.value;
+      renderQueueTable();
+    });
+  }
 
-    if (btnEdit) {
-      openShipmentModal(id);
-      return;
-    }
+  const statusSelect = document.getElementById('filter-status');
+  if (statusSelect) {
+    statusSelect.addEventListener('change', (e) => {
+      activeFilters.status = e.target.value;
+      renderQueueTable();
+    });
+  }
 
-    if (btnDelete) {
-      openDeleteModal(id);
-      return;
-    }
+  // Table row click & table action buttons delegation
+  const tbody = document.getElementById('queue-table-body');
+  if (tbody) {
+    tbody.addEventListener('click', (e) => {
+      const tr = e.target.closest('tr');
+      if (!tr) return;
+      const id = tr.getAttribute('data-id');
+      if (!id) return;
 
-    // Select row
-    selectedId = id;
-    renderApp();
-  });
+      const btnBell = e.target.closest('.btn-act-bell');
+      const btnStatus = e.target.closest('.btn-act-status');
+      const btnEdit = e.target.closest('.btn-act-edit');
+      const btnDelete = e.target.closest('.btn-act-delete');
+
+      if (btnBell) {
+        e.stopPropagation();
+        const item = shipments.find(s => s.id === id);
+        if (item) item.notificationActive = !item.notificationActive;
+        saveShipments();
+        renderQueueTable();
+        return;
+      }
+
+      if (btnStatus) {
+        e.stopPropagation();
+        openStatusUpdateModal(id);
+        return;
+      }
+
+      if (btnEdit) {
+        e.stopPropagation();
+        openShipmentModal(id);
+        return;
+      }
+
+      if (btnDelete) {
+        e.stopPropagation();
+        openDeleteModal(id);
+        return;
+      }
+
+      // Select row
+      selectedId = id;
+      renderApp();
+    });
+  }
 
   // Header Buttons
-  document.getElementById('btn-new-shipment').addEventListener('click', () => openShipmentModal(null));
-  document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
-  document.getElementById('btn-mode-config').addEventListener('click', () => openModal('modal-config'));
-  document.getElementById('btn-add-event').addEventListener('click', () => {
-    if (selectedId) openStatusUpdateModal(selectedId);
-  });
+  const btnNew = document.getElementById('btn-new-shipment');
+  if (btnNew) btnNew.addEventListener('click', () => openShipmentModal(null));
 
-  // Close modals
+  const btnExport = document.getElementById('btn-export-csv');
+  if (btnExport) btnExport.addEventListener('click', exportCSV);
+
+  const btnModeConfig = document.getElementById('btn-mode-config');
+  if (btnModeConfig) btnModeConfig.addEventListener('click', () => openModal('modal-config'));
+
+  const btnAddEvent = document.getElementById('btn-add-event');
+  if (btnAddEvent) {
+    btnAddEvent.addEventListener('click', () => {
+      if (selectedId) openStatusUpdateModal(selectedId);
+    });
+  }
+
+  // Close modals when clicking close triggers or clicking outside modal content
   document.querySelectorAll('.modal-close-trigger').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.add('hidden'));
     });
   });
 
-  // Shipment Form submit
-  document.getElementById('form-shipment').addEventListener('submit', (e) => {
-    e.preventDefault();
-    saveShipmentFromForm();
+  document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) {
+        backdrop.classList.add('hidden');
+      }
+    });
   });
+
+  // Shipment Form submit
+  const formShipment = document.getElementById('form-shipment');
+  if (formShipment) {
+    formShipment.addEventListener('submit', (e) => {
+      e.preventDefault();
+      saveShipmentFromForm();
+    });
+  }
 
   // Status Update Form submit
-  document.getElementById('form-status-update').addEventListener('submit', (e) => {
-    e.preventDefault();
-    saveStatusUpdateFromForm();
-  });
+  const formStatusUpdate = document.getElementById('form-status-update');
+  if (formStatusUpdate) {
+    formStatusUpdate.addEventListener('submit', (e) => {
+      e.preventDefault();
+      saveStatusUpdateFromForm();
+    });
+  }
 
   // Delete Confirm
-  document.getElementById('btn-confirm-delete').addEventListener('click', () => {
-    if (!pendingDeleteId) return;
-    shipments = shipments.filter(s => s.id !== pendingDeleteId);
-    if (selectedId === pendingDeleteId) selectedId = shipments[0]?.id || null;
-    saveShipments();
-    closeModal('modal-delete');
-    renderApp();
-  });
+  const btnConfirmDelete = document.getElementById('btn-confirm-delete');
+  if (btnConfirmDelete) {
+    btnConfirmDelete.addEventListener('click', () => {
+      if (!pendingDeleteId) return;
+      shipments = shipments.filter(s => s.id !== pendingDeleteId);
+      if (selectedId === pendingDeleteId) {
+        selectedId = shipments[0]?.id || null;
+      }
+      saveShipments();
+      closeModal('modal-delete');
+      renderApp();
+    });
+  }
 
   // Config save
-  document.getElementById('btn-save-config').addEventListener('click', () => {
-    const selectedMode = document.querySelector('input[name="backend-mode"]:checked')?.value || 'mock';
-    backendConfig.mode = selectedMode;
-    saveConfig();
-    closeModal('modal-config');
-    renderHeaderAndMetrics();
-  });
+  const btnSaveConfig = document.getElementById('btn-save-config');
+  if (btnSaveConfig) {
+    btnSaveConfig.addEventListener('click', () => {
+      const selectedMode = document.querySelector('input[name="backend-mode"]:checked')?.value || 'mock';
+      backendConfig.mode = selectedMode;
+      saveConfig();
+      closeModal('modal-config');
+      renderHeaderAndMetrics();
+    });
+  }
 }
 
 function openModal(id) {
-  document.getElementById(id).classList.remove('hidden');
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.remove('hidden');
 }
 
 function closeModal(id) {
-  document.getElementById(id).classList.add('hidden');
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.add('hidden');
 }
 
 function openShipmentModal(shipmentId) {
   const isEdit = !!shipmentId;
-  document.getElementById('modal-shipment-title').textContent = isEdit ? 'Edit Shipment' : 'Create New Shipment';
+  const titleEl = document.getElementById('modal-shipment-title');
+  const btnSaveEl = document.getElementById('btn-save-shipment');
+
+  if (titleEl) titleEl.textContent = isEdit ? 'Edit Shipment' : 'Create New Shipment';
+  if (btnSaveEl) btnSaveEl.textContent = isEdit ? 'Save Changes' : 'Create Shipment';
   document.getElementById('shipment-id').value = shipmentId || '';
 
   if (isEdit) {
     const s = shipments.find(item => item.id === shipmentId);
     if (!s) return;
-    document.getElementById('field-iod').value = s.iodNumber;
-    document.getElementById('field-tail').value = s.tailNo;
-    document.getElementById('field-airwaybill').value = s.airwaybill;
-    document.getElementById('field-status').value = s.status;
-    document.getElementById('field-destination').value = s.destination;
-    document.getElementById('field-quantity').value = s.quantity;
-    document.getElementById('field-mpn').value = s.mpn;
-    document.getElementById('field-nsn').value = s.nsn;
-    document.getElementById('field-demand').value = s.demandDateTime;
-    document.getElementById('field-etd').value = s.etd;
-    document.getElementById('field-eta').value = s.eta;
-    document.getElementById('field-description').value = s.description;
-    document.getElementById('field-remarks').value = s.remarks;
+    document.getElementById('field-iod').value = s.iodNumber || '';
+    document.getElementById('field-tail').value = s.tailNo || '';
+    document.getElementById('field-airwaybill').value = s.airwaybill || '';
+    document.getElementById('field-status').value = s.status || 'Pending Airwaybill';
+    document.getElementById('field-destination').value = s.destination || '';
+    document.getElementById('field-quantity').value = s.quantity || 1;
+    document.getElementById('field-mpn').value = s.mpn || '';
+    document.getElementById('field-nsn').value = s.nsn || '';
+    document.getElementById('field-demand').value = s.demandDateTime || '';
+    document.getElementById('field-etd').value = s.etd || '';
+    document.getElementById('field-eta').value = s.eta || '';
+    document.getElementById('field-description').value = s.description || '';
+    document.getElementById('field-remarks').value = s.remarks || '';
   } else {
     document.getElementById('field-iod').value = `IOD-2026-00${Math.floor(Math.random() * 900 + 100)}`;
     document.getElementById('field-tail').value = '';
@@ -530,19 +622,19 @@ function saveShipmentFromForm() {
   const timeStr = getCurrentTimestamp();
 
   const formData = {
-    iodNumber: document.getElementById('field-iod').value,
-    tailNo: document.getElementById('field-tail').value,
-    airwaybill: document.getElementById('field-airwaybill').value,
+    iodNumber: document.getElementById('field-iod').value.trim(),
+    tailNo: document.getElementById('field-tail').value.trim(),
+    airwaybill: document.getElementById('field-airwaybill').value.trim(),
     status: document.getElementById('field-status').value,
-    destination: document.getElementById('field-destination').value,
+    destination: document.getElementById('field-destination').value.trim(),
     quantity: parseInt(document.getElementById('field-quantity').value) || 1,
-    mpn: document.getElementById('field-mpn').value,
-    nsn: document.getElementById('field-nsn').value,
-    demandDateTime: document.getElementById('field-demand').value,
-    etd: document.getElementById('field-etd').value,
-    eta: document.getElementById('field-eta').value,
-    description: document.getElementById('field-description').value,
-    remarks: document.getElementById('field-remarks').value,
+    mpn: document.getElementById('field-mpn').value.trim(),
+    nsn: document.getElementById('field-nsn').value.trim(),
+    demandDateTime: document.getElementById('field-demand').value.trim(),
+    etd: document.getElementById('field-etd').value.trim(),
+    eta: document.getElementById('field-eta').value.trim(),
+    description: document.getElementById('field-description').value.trim(),
+    remarks: document.getElementById('field-remarks').value.trim(),
   };
 
   if (isEdit) {
@@ -562,7 +654,7 @@ function saveShipmentFromForm() {
       ...formData,
       id: newId,
       notificationActive: false,
-      history: [{ id: `hist-${Date.now()}`, status: formData.status, timestamp: timeStr, description: `New shipment created.` }]
+      history: [{ id: `hist-${Date.now()}`, status: formData.status, timestamp: timeStr, description: `New shipment recorded. Status set to ${formData.status}.` }]
     };
     shipments.unshift(newShipment);
     selectedId = newId;
@@ -609,7 +701,7 @@ function openDeleteModal(shipmentId) {
   const s = shipments.find(item => item.id === shipmentId);
   if (!s) return;
   pendingDeleteId = shipmentId;
-  document.getElementById('delete-confirm-text').textContent = `Are you sure you want to delete shipment ${s.iodNumber} (${s.tailNo})? This action cannot be undone.`;
+  document.getElementById('delete-confirm-text').innerHTML = `Are you sure you want to delete shipment <span class="font-bold text-slate-800">${s.iodNumber} (${s.tailNo})</span>? This action cannot be undone.`;
   openModal('modal-delete');
 }
 
@@ -619,21 +711,27 @@ function exportCSV() {
   const rows = filtered.map(s => [
     `"${s.iodNumber}"`, `"${s.tailNo}"`, `"${s.airwaybill}"`, `"${s.status}"`,
     `"${s.destination}"`, `"${s.demandDateTime}"`, `"${s.etd}"`, `"${s.eta}"`,
-    `"${s.mpn}"`, `"${s.nsn}"`, s.quantity, `"${s.description}"`, `"${s.remarks}"`
+    `"${s.mpn}"`, `"${s.nsn}"`, s.quantity, `"${(s.description || '').replace(/"/g, '""')}"`, `"${(s.remarks || '').replace(/"/g, '""')}"`
   ]);
   const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = 'Aircraft_Spares_Shipments_Vanilla_2026.csv';
+  link.download = 'Aircraft_Spares_Shipments_2026.csv';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
 }
 
 // --- Initialize App ---
-document.addEventListener('DOMContentLoaded', () => {
+function initApp() {
   setupEventListeners();
   renderApp();
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
