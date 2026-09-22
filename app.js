@@ -1,5 +1,6 @@
 /**
  * Spares Shipment Tracker - Vanilla JavaScript Application
+ * Supports Local Mock (LocalStorage), SharePoint REST API, and M365 Dataverse Web API
  */
 
 const LOCAL_STORAGE_KEY = 'spares_shipments_vanilla_data_v1';
@@ -135,36 +136,33 @@ const INITIAL_SHIPMENTS = [
 ];
 
 // App State
-let shipments = loadShipments();
+let shipments = [];
 let selectedId = 'ship-005';
 let activeFilters = { searchQuery: '', detachment: '', status: '' };
 let backendConfig = loadConfig();
 let pendingDeleteId = null;
+let isLoadingData = false;
+let apiErrorMessage = null;
 
-// --- Helper Functions ---
-function loadShipments() {
-  try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : INITIAL_SHIPMENTS;
-  } catch {
-    return INITIAL_SHIPMENTS;
-  }
-}
-
-function saveShipments() {
-  try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(shipments));
-  } catch (err) {
-    console.error('Error saving shipments:', err);
-  }
-}
-
+// --- Config Management ---
 function loadConfig() {
   try {
     const raw = localStorage.getItem(CONFIG_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : { mode: 'mock', siteUrl: '', listName: '' };
+    return raw ? JSON.parse(raw) : {
+      mode: 'mock',
+      siteUrl: window.location.origin && window.location.origin !== 'null' ? `${window.location.origin}/sites/LogisticsHub` : 'https://tenant.sharepoint.com/sites/LogisticsHub',
+      listName: 'AircraftSparesShipments',
+      dataverseUrl: 'https://org.crm.dynamics.com/api/data/v9.2',
+      dataverseTable: 'cr_spares_shipments'
+    };
   } catch {
-    return { mode: 'mock', siteUrl: '', listName: '' };
+    return {
+      mode: 'mock',
+      siteUrl: 'https://tenant.sharepoint.com/sites/LogisticsHub',
+      listName: 'AircraftSparesShipments',
+      dataverseUrl: 'https://org.crm.dynamics.com/api/data/v9.2',
+      dataverseTable: 'cr_spares_shipments'
+    };
   }
 }
 
@@ -176,6 +174,419 @@ function saveConfig() {
   }
 }
 
+function loadLocalStorageShipments() {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : INITIAL_SHIPMENTS;
+  } catch {
+    return INITIAL_SHIPMENTS;
+  }
+}
+
+function saveLocalStorageShipments(data) {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+  } catch (err) {
+    console.error('Error saving shipments to LocalStorage:', err);
+  }
+}
+
+// --- SharePoint REST API Backend Service ---
+const SharePointService = {
+  async getRequestDigest(siteUrl) {
+    if (window._spPageContextInfo && window._spPageContextInfo.formDigestValue) {
+      return window._spPageContextInfo.formDigestValue;
+    }
+    const digestElem = document.getElementById('__REQUESTDIGEST');
+    if (digestElem && digestElem.value) return digestElem.value;
+
+    try {
+      const url = `${siteUrl.replace(/\/$/, '')}/_api/contextinfo`;
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json;odata=verbose' }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        return data.d?.GetContextWebInformation?.FormDigestValue || '';
+      }
+    } catch (e) {
+      console.warn('Could not fetch SharePoint Request Digest:', e);
+    }
+    return '';
+  },
+
+  mapItemFromSP(spItem) {
+    let history = [];
+    if (spItem.StatusHistoryJSON) {
+      try { history = JSON.parse(spItem.StatusHistoryJSON); } catch { history = []; }
+    } else if (spItem.history) {
+      try { history = typeof spItem.history === 'string' ? JSON.parse(spItem.history) : spItem.history; } catch { history = []; }
+    }
+
+    return {
+      id: String(spItem.Id || spItem.ID || spItem.id),
+      iodNumber: spItem.Title || spItem.iodNumber || spItem.IODNumber || '',
+      tailNo: spItem.TailNo || spItem.tailNo || spItem.TailNumber || '',
+      airwaybill: spItem.Airwaybill || spItem.airwaybill || '',
+      status: spItem.Status || spItem.status || 'Pending Airwaybill',
+      destination: spItem.Destination || spItem.destination || '',
+      demandDateTime: spItem.DemandDateTime || spItem.demandDateTime || '',
+      etd: spItem.ETD || spItem.etd || '',
+      eta: spItem.ETA || spItem.eta || '',
+      mpn: spItem.MPN || spItem.mpn || '',
+      nsn: spItem.NSN || spItem.nsn || '',
+      description: spItem.Description || spItem.description || spItem.SparesDescription || '',
+      quantity: parseInt(spItem.Quantity || spItem.quantity) || 1,
+      remarks: spItem.Remarks || spItem.remarks || '',
+      notificationActive: !!(spItem.NotificationActive ?? spItem.notificationActive),
+      history: Array.isArray(history) ? history : []
+    };
+  },
+
+  mapItemToSP(shipment) {
+    return {
+      Title: shipment.iodNumber || '',
+      TailNo: shipment.tailNo || '',
+      Airwaybill: shipment.airwaybill || '',
+      Status: shipment.status || 'Pending Airwaybill',
+      Destination: shipment.destination || '',
+      DemandDateTime: shipment.demandDateTime || '',
+      ETD: shipment.etd || '',
+      ETA: shipment.eta || '',
+      MPN: shipment.mpn || '',
+      NSN: shipment.nsn || '',
+      Description: shipment.description || '',
+      Quantity: shipment.quantity || 1,
+      Remarks: shipment.remarks || '',
+      NotificationActive: !!shipment.notificationActive,
+      StatusHistoryJSON: JSON.stringify(shipment.history || [])
+    };
+  },
+
+  async fetchShipments(config) {
+    const siteUrl = (config.siteUrl || '').replace(/\/$/, '');
+    const listName = config.listName || 'AircraftSparesShipments';
+    const endpoint = `${siteUrl}/_api/web/lists/getbytitle('${encodeURIComponent(listName)}')/items?$top=500`;
+
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json;odata=nometadata' }
+    });
+
+    if (!res.ok) {
+      throw new Error(`SharePoint API HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    const rawItems = data.value || data.d?.results || [];
+    return rawItems.map(item => this.mapItemFromSP(item));
+  },
+
+  async createShipment(config, shipment) {
+    const siteUrl = (config.siteUrl || '').replace(/\/$/, '');
+    const listName = config.listName || 'AircraftSparesShipments';
+    const endpoint = `${siteUrl}/_api/web/lists/getbytitle('${encodeURIComponent(listName)}')/items`;
+    const digest = await this.getRequestDigest(siteUrl);
+
+    const payload = this.mapItemToSP(shipment);
+
+    const headers = {
+      'Accept': 'application/json;odata=nometadata',
+      'Content-Type': 'application/json;odata=nometadata'
+    };
+    if (digest) headers['X-RequestDigest'] = digest;
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      throw new Error(`SharePoint Create HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    return this.mapItemFromSP(data);
+  },
+
+  async updateShipment(config, shipment) {
+    const siteUrl = (config.siteUrl || '').replace(/\/$/, '');
+    const listName = config.listName || 'AircraftSparesShipments';
+    const endpoint = `${siteUrl}/_api/web/lists/getbytitle('${encodeURIComponent(listName)}')/items(${shipment.id})`;
+    const digest = await this.getRequestDigest(siteUrl);
+
+    const payload = this.mapItemToSP(shipment);
+
+    const headers = {
+      'Accept': 'application/json;odata=nometadata',
+      'Content-Type': 'application/json;odata=nometadata',
+      'X-HTTP-Method': 'MERGE',
+      'IF-MATCH': '*'
+    };
+    if (digest) headers['X-RequestDigest'] = digest;
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok && res.status !== 204) {
+      throw new Error(`SharePoint Update HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    return shipment;
+  },
+
+  async deleteShipment(config, id) {
+    const siteUrl = (config.siteUrl || '').replace(/\/$/, '');
+    const listName = config.listName || 'AircraftSparesShipments';
+    const endpoint = `${siteUrl}/_api/web/lists/getbytitle('${encodeURIComponent(listName)}')/items(${id})`;
+    const digest = await this.getRequestDigest(siteUrl);
+
+    const headers = {
+      'Accept': 'application/json;odata=nometadata',
+      'X-HTTP-Method': 'DELETE',
+      'IF-MATCH': '*'
+    };
+    if (digest) headers['X-RequestDigest'] = digest;
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: headers
+    });
+
+    if (!res.ok && res.status !== 204) {
+      throw new Error(`SharePoint Delete HTTP ${res.status}: ${res.statusText}`);
+    }
+  }
+};
+
+// --- M365 Dataverse Web API Service ---
+const DataverseService = {
+  mapItemFromDV(dvItem) {
+    let history = [];
+    if (dvItem.cr_statushistoryjson) {
+      try { history = JSON.parse(dvItem.cr_statushistoryjson); } catch { history = []; }
+    }
+
+    return {
+      id: dvItem.cr_spares_shipmentid || dvItem.cr_shipmentid || dvItem.id,
+      iodNumber: dvItem.cr_iodnumber || dvItem.cr_title || dvItem.name || '',
+      tailNo: dvItem.cr_tailno || '',
+      airwaybill: dvItem.cr_airwaybill || '',
+      status: dvItem.cr_status || 'Pending Airwaybill',
+      destination: dvItem.cr_destination || '',
+      demandDateTime: dvItem.cr_demanddatetime || '',
+      etd: dvItem.cr_etd || '',
+      eta: dvItem.cr_eta || '',
+      mpn: dvItem.cr_mpn || '',
+      nsn: dvItem.cr_nsn || '',
+      description: dvItem.cr_description || '',
+      quantity: parseInt(dvItem.cr_quantity) || 1,
+      remarks: dvItem.cr_remarks || '',
+      notificationActive: !!dvItem.cr_notificationactive,
+      history: Array.isArray(history) ? history : []
+    };
+  },
+
+  mapItemToDV(shipment) {
+    return {
+      cr_iodnumber: shipment.iodNumber || '',
+      cr_tailno: shipment.tailNo || '',
+      cr_airwaybill: shipment.airwaybill || '',
+      cr_status: shipment.status || 'Pending Airwaybill',
+      cr_destination: shipment.destination || '',
+      cr_demanddatetime: shipment.demandDateTime || '',
+      cr_etd: shipment.etd || '',
+      cr_eta: shipment.eta || '',
+      cr_mpn: shipment.mpn || '',
+      cr_nsn: shipment.nsn || '',
+      cr_description: shipment.description || '',
+      cr_quantity: shipment.quantity || 1,
+      cr_remarks: shipment.remarks || '',
+      cr_notificationactive: !!shipment.notificationActive,
+      cr_statushistoryjson: JSON.stringify(shipment.history || [])
+    };
+  },
+
+  async fetchShipments(config) {
+    const orgUrl = (config.dataverseUrl || 'https://org.crm.dynamics.com/api/data/v9.2').replace(/\/$/, '');
+    const tableName = config.dataverseTable || 'cr_spares_shipments';
+    const endpoint = `${orgUrl}/${tableName}?$top=500`;
+
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'OData-MaxVersion': '4.0',
+        'OData-Version': '4.0'
+      }
+    });
+
+    if (!res.ok) {
+      throw new Error(`Dataverse API HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    const rawItems = data.value || [];
+    return rawItems.map(item => this.mapItemFromDV(item));
+  },
+
+  async createShipment(config, shipment) {
+    const orgUrl = (config.dataverseUrl || 'https://org.crm.dynamics.com/api/data/v9.2').replace(/\/$/, '');
+    const tableName = config.dataverseTable || 'cr_spares_shipments';
+    const endpoint = `${orgUrl}/${tableName}`;
+
+    const payload = this.mapItemToDV(shipment);
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
+        'OData-MaxVersion': '4.0',
+        'OData-Version': '4.0',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      throw new Error(`Dataverse Create HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    return this.mapItemFromDV(data);
+  },
+
+  async updateShipment(config, shipment) {
+    const orgUrl = (config.dataverseUrl || 'https://org.crm.dynamics.com/api/data/v9.2').replace(/\/$/, '');
+    const tableName = config.dataverseTable || 'cr_spares_shipments';
+    const endpoint = `${orgUrl}/${tableName}(${shipment.id})`;
+
+    const payload = this.mapItemToDV(shipment);
+
+    const res = await fetch(endpoint, {
+      method: 'PATCH',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json; charset=utf-8',
+        'OData-MaxVersion': '4.0',
+        'OData-Version': '4.0'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok && res.status !== 204) {
+      throw new Error(`Dataverse Update HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    return shipment;
+  },
+
+  async deleteShipment(config, id) {
+    const orgUrl = (config.dataverseUrl || 'https://org.crm.dynamics.com/api/data/v9.2').replace(/\/$/, '');
+    const tableName = config.dataverseTable || 'cr_spares_shipments';
+    const endpoint = `${orgUrl}/${tableName}(${id})`;
+
+    const res = await fetch(endpoint, {
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json',
+        'OData-MaxVersion': '4.0',
+        'OData-Version': '4.0'
+      }
+    });
+
+    if (!res.ok && res.status !== 204) {
+      throw new Error(`Dataverse Delete HTTP ${res.status}: ${res.statusText}`);
+    }
+  }
+};
+
+// --- Unified Shipment Data Service ---
+const ShipmentDataService = {
+  async fetchAll(config) {
+    const mode = config.mode || 'mock';
+    if (mode === 'sharepoint') {
+      return await SharePointService.fetchShipments(config);
+    } else if (mode === 'dataverse') {
+      return await DataverseService.fetchShipments(config);
+    } else {
+      return loadLocalStorageShipments();
+    }
+  },
+
+  async save(config, shipmentData) {
+    const mode = config.mode || 'mock';
+    const isEdit = !!shipmentData.id;
+
+    if (mode === 'sharepoint') {
+      if (isEdit) {
+        return await SharePointService.updateShipment(config, shipmentData);
+      } else {
+        return await SharePointService.createShipment(config, shipmentData);
+      }
+    } else if (mode === 'dataverse') {
+      if (isEdit) {
+        return await DataverseService.updateShipment(config, shipmentData);
+      } else {
+        return await DataverseService.createShipment(config, shipmentData);
+      }
+    } else {
+      let list = loadLocalStorageShipments();
+      if (isEdit) {
+        list = list.map(s => s.id === shipmentData.id ? { ...s, ...shipmentData } : s);
+      } else {
+        const newId = `ship-${Date.now()}`;
+        const newShipment = { ...shipmentData, id: newId };
+        list.unshift(newShipment);
+        shipmentData = newShipment;
+      }
+      saveLocalStorageShipments(list);
+      return shipmentData;
+    }
+  },
+
+  async delete(config, id) {
+    const mode = config.mode || 'mock';
+    if (mode === 'sharepoint') {
+      await SharePointService.deleteShipment(config, id);
+    } else if (mode === 'dataverse') {
+      await DataverseService.deleteShipment(config, id);
+    } else {
+      let list = loadLocalStorageShipments();
+      list = list.filter(s => s.id !== id);
+      saveLocalStorageShipments(list);
+    }
+  },
+
+  async testConnection(config) {
+    const mode = config.mode || 'mock';
+    if (mode === 'mock') {
+      return { success: true, message: 'Local Mock mode active. Interactive prototype stored in LocalStorage.' };
+    } else if (mode === 'sharepoint') {
+      try {
+        const list = await SharePointService.fetchShipments(config);
+        return { success: true, message: `Successfully connected to SharePoint List "${config.listName || 'AircraftSparesShipments'}"! Loaded ${list.length} item(s).` };
+      } catch (e) {
+        return { success: false, message: `SharePoint Connection Error: ${e.message}` };
+      }
+    } else if (mode === 'dataverse') {
+      try {
+        const list = await DataverseService.fetchShipments(config);
+        return { success: true, message: `Successfully connected to Dataverse Table "${config.dataverseTable || 'cr_spares_shipments'}"! Loaded ${list.length} item(s).` };
+      } catch (e) {
+        return { success: false, message: `Dataverse Connection Error: ${e.message}` };
+      }
+    }
+  }
+};
+
+// --- Helper Utilities ---
 function getStatusBadgeClass(status) {
   switch (status) {
     case 'Pending Airwaybill': return 'status-pending-airwaybill';
@@ -213,7 +624,30 @@ function getTrashIcon() {
   return `<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
 }
 
-// --- Render Engine ---
+// --- Main Application Data Loader & Renderer ---
+async function loadApplicationData() {
+  isLoadingData = true;
+  apiErrorMessage = null;
+  renderQueueTable();
+
+  try {
+    shipments = await ShipmentDataService.fetchAll(backendConfig);
+    if (!selectedId || !shipments.find(s => s.id === selectedId)) {
+      selectedId = shipments[0]?.id || null;
+    }
+  } catch (err) {
+    console.error(`Error loading data in mode [${backendConfig.mode}]:`, err);
+    apiErrorMessage = `${err.message || err}. Falling back to local data prototype.`;
+    shipments = loadLocalStorageShipments();
+    if (!selectedId || !shipments.find(s => s.id === selectedId)) {
+      selectedId = shipments[0]?.id || null;
+    }
+  } finally {
+    isLoadingData = false;
+    renderApp();
+  }
+}
+
 function renderApp() {
   renderHeaderAndMetrics();
   populateDropdownFilters();
@@ -349,14 +783,24 @@ function renderQueueTable() {
   const tbody = document.getElementById('queue-table-body');
   if (!tbody) return;
 
-  const filtered = getFilteredShipments();
-
-  if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 32px;">No matching shipments found.</td></tr>';
+  if (isLoadingData) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #0284c7; padding: 32px;"><span class="spinner"></span> Synchronizing with backend API...</td></tr>';
     return;
   }
 
-  tbody.innerHTML = filtered.map(item => {
+  let errorBannerHtml = '';
+  if (apiErrorMessage) {
+    errorBannerHtml = `<tr><td colspan="5" style="padding: 12px 16px;"><div class="alert-banner error" style="margin: 0;">⚠️ ${apiErrorMessage}</div></td></tr>`;
+  }
+
+  const filtered = getFilteredShipments();
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = errorBannerHtml + '<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 32px;">No matching shipments found.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = errorBannerHtml + filtered.map(item => {
     const isSelected = item.id === selectedId;
     const badgeClass = getStatusBadgeClass(item.status);
     const bellSvg = getBellIcon(item.notificationActive);
@@ -440,7 +884,7 @@ function setupEventListeners() {
   // Table row click & table action buttons delegation
   const tbody = document.getElementById('queue-table-body');
   if (tbody) {
-    tbody.addEventListener('click', (e) => {
+    tbody.addEventListener('click', async (e) => {
       const tr = e.target.closest('tr');
       if (!tr) return;
       const id = tr.getAttribute('data-id');
@@ -454,8 +898,14 @@ function setupEventListeners() {
       if (btnBell) {
         e.stopPropagation();
         const item = shipments.find(s => s.id === id);
-        if (item) item.notificationActive = !item.notificationActive;
-        saveShipments();
+        if (item) {
+          item.notificationActive = !item.notificationActive;
+          try {
+            await ShipmentDataService.save(backendConfig, item);
+          } catch (err) {
+            console.error('Error toggling notification:', err);
+          }
+        }
         renderQueueTable();
         return;
       }
@@ -492,7 +942,7 @@ function setupEventListeners() {
   if (btnExport) btnExport.addEventListener('click', exportCSV);
 
   const btnModeConfig = document.getElementById('btn-mode-config');
-  if (btnModeConfig) btnModeConfig.addEventListener('click', () => openModal('modal-config'));
+  if (btnModeConfig) btnModeConfig.addEventListener('click', () => openConfigModalUI());
 
   const btnAddEvent = document.getElementById('btn-add-event');
   if (btnAddEvent) {
@@ -519,45 +969,77 @@ function setupEventListeners() {
   // Shipment Form submit
   const formShipment = document.getElementById('form-shipment');
   if (formShipment) {
-    formShipment.addEventListener('submit', (e) => {
+    formShipment.addEventListener('submit', async (e) => {
       e.preventDefault();
-      saveShipmentFromForm();
+      await saveShipmentFromForm();
     });
   }
 
   // Status Update Form submit
   const formStatusUpdate = document.getElementById('form-status-update');
   if (formStatusUpdate) {
-    formStatusUpdate.addEventListener('submit', (e) => {
+    formStatusUpdate.addEventListener('submit', async (e) => {
       e.preventDefault();
-      saveStatusUpdateFromForm();
+      await saveStatusUpdateFromForm();
     });
   }
 
   // Delete Confirm
   const btnConfirmDelete = document.getElementById('btn-confirm-delete');
   if (btnConfirmDelete) {
-    btnConfirmDelete.addEventListener('click', () => {
+    btnConfirmDelete.addEventListener('click', async () => {
       if (!pendingDeleteId) return;
-      shipments = shipments.filter(s => s.id !== pendingDeleteId);
-      if (selectedId === pendingDeleteId) {
-        selectedId = shipments[0]?.id || null;
+      const idToDelete = pendingDeleteId;
+      try {
+        await ShipmentDataService.delete(backendConfig, idToDelete);
+        shipments = shipments.filter(s => s.id !== idToDelete);
+        if (selectedId === idToDelete) {
+          selectedId = shipments[0]?.id || null;
+        }
+      } catch (err) {
+        alert(`Error deleting shipment: ${err.message}`);
       }
-      saveShipments();
       closeModal('modal-delete');
       renderApp();
+    });
+  }
+
+  // Backend Config Radio buttons toggle
+  document.querySelectorAll('input[name="backend-mode"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      updateConfigSubcardVisibility(e.target.value);
+    });
+  });
+
+  // Test Connection button
+  const btnTestConfig = document.getElementById('btn-test-config');
+  if (btnTestConfig) {
+    btnTestConfig.addEventListener('click', async () => {
+      const tempConfig = gatherConfigFromUI();
+      const statusContainer = document.getElementById('config-test-status');
+      if (statusContainer) {
+        statusContainer.style.display = 'block';
+        statusContainer.className = 'alert-banner info';
+        statusContainer.innerHTML = '<span class="spinner"></span> Testing connection to backend API...';
+      }
+
+      const res = await ShipmentDataService.testConnection(tempConfig);
+      if (statusContainer) {
+        statusContainer.style.display = 'block';
+        statusContainer.className = res.success ? 'alert-banner success' : 'alert-banner error';
+        statusContainer.innerHTML = (res.success ? '✅ ' : '❌ ') + res.message;
+      }
     });
   }
 
   // Config save
   const btnSaveConfig = document.getElementById('btn-save-config');
   if (btnSaveConfig) {
-    btnSaveConfig.addEventListener('click', () => {
-      const selectedMode = document.querySelector('input[name="backend-mode"]:checked')?.value || 'mock';
-      backendConfig.mode = selectedMode;
+    btnSaveConfig.addEventListener('click', async () => {
+      backendConfig = gatherConfigFromUI();
       saveConfig();
       closeModal('modal-config');
-      renderHeaderAndMetrics();
+      await loadApplicationData();
     });
   }
 }
@@ -570,6 +1052,57 @@ function openModal(id) {
 function closeModal(id) {
   const modal = document.getElementById(id);
   if (modal) modal.classList.add('hidden');
+}
+
+function gatherConfigFromUI() {
+  const selectedMode = document.querySelector('input[name="backend-mode"]:checked')?.value || 'mock';
+  const siteUrl = document.getElementById('cfg-sp-site')?.value.trim() || '';
+  const listName = document.getElementById('cfg-sp-list')?.value.trim() || 'AircraftSparesShipments';
+  const dataverseUrl = document.getElementById('cfg-dv-url')?.value.trim() || 'https://org.crm.dynamics.com/api/data/v9.2';
+  const dataverseTable = document.getElementById('cfg-dv-table')?.value.trim() || 'cr_spares_shipments';
+
+  return {
+    mode: selectedMode,
+    siteUrl,
+    listName,
+    dataverseUrl,
+    dataverseTable
+  };
+}
+
+function updateConfigSubcardVisibility(mode) {
+  const spSubcard = document.getElementById('config-sharepoint-fields');
+  const dvSubcard = document.getElementById('config-dataverse-fields');
+
+  if (spSubcard) spSubcard.style.display = (mode === 'sharepoint') ? 'block' : 'none';
+  if (dvSubcard) dvSubcard.style.display = (mode === 'dataverse') ? 'block' : 'none';
+}
+
+function openConfigModalUI() {
+  const modeRadio = document.querySelector(`input[name="backend-mode"][value="${backendConfig.mode}"]`);
+  if (modeRadio) modeRadio.checked = true;
+
+  const spSiteInput = document.getElementById('cfg-sp-site');
+  if (spSiteInput) spSiteInput.value = backendConfig.siteUrl || '';
+
+  const spListInput = document.getElementById('cfg-sp-list');
+  if (spListInput) spListInput.value = backendConfig.listName || 'AircraftSparesShipments';
+
+  const dvUrlInput = document.getElementById('cfg-dv-url');
+  if (dvUrlInput) dvUrlInput.value = backendConfig.dataverseUrl || 'https://org.crm.dynamics.com/api/data/v9.2';
+
+  const dvTableInput = document.getElementById('cfg-dv-table');
+  if (dvTableInput) dvTableInput.value = backendConfig.dataverseTable || 'cr_spares_shipments';
+
+  const testStatus = document.getElementById('config-test-status');
+  if (testStatus) {
+    testStatus.className = 'alert-banner info';
+    testStatus.style.display = 'none';
+    testStatus.innerHTML = '';
+  }
+
+  updateConfigSubcardVisibility(backendConfig.mode);
+  openModal('modal-config');
 }
 
 function openShipmentModal(shipmentId) {
@@ -616,12 +1149,13 @@ function openShipmentModal(shipmentId) {
   openModal('modal-shipment');
 }
 
-function saveShipmentFromForm() {
+async function saveShipmentFromForm() {
   const id = document.getElementById('shipment-id').value;
   const isEdit = !!id;
   const timeStr = getCurrentTimestamp();
 
   const formData = {
+    id: id || undefined,
     iodNumber: document.getElementById('field-iod').value.trim(),
     tailNo: document.getElementById('field-tail').value.trim(),
     airwaybill: document.getElementById('field-airwaybill').value.trim(),
@@ -637,32 +1171,32 @@ function saveShipmentFromForm() {
     remarks: document.getElementById('field-remarks').value.trim(),
   };
 
-  if (isEdit) {
-    shipments = shipments.map(s => {
-      if (s.id === id) {
-        const statusChanged = s.status !== formData.status;
-        const newHistory = statusChanged
-          ? [{ id: `hist-${Date.now()}`, status: formData.status, timestamp: timeStr, description: `Status updated to ${formData.status}.` }, ...s.history]
-          : s.history;
-        return { ...s, ...formData, history: newHistory };
-      }
-      return s;
-    });
-  } else {
-    const newId = `ship-${Date.now()}`;
-    const newShipment = {
-      ...formData,
-      id: newId,
-      notificationActive: false,
-      history: [{ id: `hist-${Date.now()}`, status: formData.status, timestamp: timeStr, description: `New shipment recorded. Status set to ${formData.status}.` }]
-    };
-    shipments.unshift(newShipment);
-    selectedId = newId;
+  const existing = isEdit ? shipments.find(s => s.id === id) : null;
+  const statusChanged = existing ? (existing.status !== formData.status) : false;
+
+  let newHistory = existing?.history ? [...existing.history] : [];
+  if (!isEdit) {
+    newHistory = [{ id: `hist-${Date.now()}`, status: formData.status, timestamp: timeStr, description: `New shipment recorded. Status set to ${formData.status}.` }];
+  } else if (statusChanged) {
+    newHistory = [{ id: `hist-${Date.now()}`, status: formData.status, timestamp: timeStr, description: `Status updated to ${formData.status}.` }, ...newHistory];
   }
 
-  saveShipments();
-  closeModal('modal-shipment');
-  renderApp();
+  const shipmentToSave = {
+    ...formData,
+    notificationActive: existing ? existing.notificationActive : false,
+    history: newHistory
+  };
+
+  try {
+    const saved = await ShipmentDataService.save(backendConfig, shipmentToSave);
+    if (!isEdit && saved?.id) {
+      selectedId = saved.id;
+    }
+    closeModal('modal-shipment');
+    await loadApplicationData();
+  } catch (err) {
+    alert(`Error saving shipment to backend (${backendConfig.mode}): ${err.message}`);
+  }
 }
 
 function openStatusUpdateModal(shipmentId) {
@@ -675,26 +1209,33 @@ function openStatusUpdateModal(shipmentId) {
   openModal('modal-status-update');
 }
 
-function saveStatusUpdateFromForm() {
+async function saveStatusUpdateFromForm() {
   const id = document.getElementById('status-update-shipment-id').value;
+  const s = shipments.find(item => item.id === id);
+  if (!s) return;
+
   const newStatus = document.getElementById('status-update-select').value;
   const remarks = document.getElementById('status-update-remarks').value.trim() || `Status updated to ${newStatus}`;
   const timeStr = getCurrentTimestamp();
 
-  shipments = shipments.map(s => {
-    if (s.id === id) {
-      return {
-        ...s,
-        status: newStatus,
-        history: [{ id: `hist-${Date.now()}`, status: newStatus, timestamp: timeStr, description: remarks }, ...s.history]
-      };
-    }
-    return s;
-  });
+  const updatedHistory = [
+    { id: `hist-${Date.now()}`, status: newStatus, timestamp: timeStr, description: remarks },
+    ...(s.history || [])
+  ];
 
-  saveShipments();
-  closeModal('modal-status-update');
-  renderApp();
+  const updatedShipment = {
+    ...s,
+    status: newStatus,
+    history: updatedHistory
+  };
+
+  try {
+    await ShipmentDataService.save(backendConfig, updatedShipment);
+    closeModal('modal-status-update');
+    await loadApplicationData();
+  } catch (err) {
+    alert(`Error updating status: ${err.message}`);
+  }
 }
 
 function openDeleteModal(shipmentId) {
@@ -725,9 +1266,9 @@ function exportCSV() {
 }
 
 // --- Initialize App ---
-function initApp() {
+async function initApp() {
   setupEventListeners();
-  renderApp();
+  await loadApplicationData();
 }
 
 if (document.readyState === 'loading') {

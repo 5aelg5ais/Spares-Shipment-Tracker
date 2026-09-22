@@ -764,6 +764,7 @@ body {
   border: 1px solid #BAE6FD;
   border-radius: 8px;
   padding: 16px;
+  margin-top: 14px;
 }
 
 .subcard-title {
@@ -772,4 +773,49 @@ body {
   color: #0369A1;
   margin-bottom: 12px;
 }
+
+.alert-banner {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  word-break: break-word;
+}
+
+.alert-banner.success {
+  background-color: #DEF7EC;
+  color: #03543F;
+  border: 1px solid #BCF0DA;
+}
+
+.alert-banner.error {
+  background-color: #FDE8E8;
+  color: #9B1C1C;
+  border: 1px solid #FBD5D5;
+}
+
+.alert-banner.info {
+  background-color: #E1EFFE;
+  color: #1E429F;
+  border: 1px solid #C3D9FF;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 

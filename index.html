@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Spares Shipment Tracker</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>" />
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>" />
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
@@ -340,6 +342,7 @@
       .select-detachment-wrapper {
         width: 220px;
       }
+
       .select-status-wrapper {
         width: 190px;
       }
@@ -406,11 +409,25 @@
       border-bottom: 1px solid #E2E9F0;
     }
 
-    .col-iod { width: 180px; }
-    .col-status { width: 210px; }
-    .col-dest { width: auto; }
-    .col-eta { width: 190px; }
-    .col-actions { width: 150px; }
+    .col-iod {
+      width: 180px;
+    }
+
+    .col-status {
+      width: 210px;
+    }
+
+    .col-dest {
+      width: auto;
+    }
+
+    .col-eta {
+      width: 190px;
+    }
+
+    .col-actions {
+      width: 150px;
+    }
 
     .queue-table td {
       padding: 14px 16px;
@@ -594,9 +611,17 @@
       overflow: hidden;
     }
 
-    .modal-sm { max-width: 400px; }
-    .modal-md { max-width: 500px; }
-    .modal-lg { max-width: 680px; }
+    .modal-sm {
+      max-width: 400px;
+    }
+
+    .modal-md {
+      max-width: 500px;
+    }
+
+    .modal-lg {
+      max-width: 680px;
+    }
 
     .modal-header {
       padding: 16px 24px;
@@ -681,16 +706,45 @@
       color: #DC2626;
     }
 
-    .text-muted { color: #64748B; }
-    .text-xs { font-size: 12px; }
-    .text-sm { font-size: 14px; }
-    .font-bold { font-weight: 700; }
-    .text-right { text-align: right; }
-    .justify-center { justify-content: center; }
-    .text-center { text-align: center; }
-    .mb-3 { margin-bottom: 12px; }
-    .mt-2 { margin-top: 8px; }
-    .mt-4 { margin-top: 16px; }
+    .text-muted {
+      color: #64748B;
+    }
+
+    .text-xs {
+      font-size: 12px;
+    }
+
+    .text-sm {
+      font-size: 14px;
+    }
+
+    .font-bold {
+      font-weight: 700;
+    }
+
+    .text-right {
+      text-align: right;
+    }
+
+    .justify-center {
+      justify-content: center;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .mb-3 {
+      margin-bottom: 12px;
+    }
+
+    .mt-2 {
+      margin-top: 8px;
+    }
+
+    .mt-4 {
+      margin-top: 16px;
+    }
 
     .delete-icon-wrapper {
       width: 48px;
@@ -782,6 +836,7 @@
     }
   </style>
 </head>
+
 <body>
   <div class="app-container" id="app">
     <!-- 1. Header Section -->
@@ -789,7 +844,8 @@
       <div class="header-main">
         <div class="header-left">
           <div class="badge-logistics">
-            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
               <rect x="1" y="3" width="15" height="13" rx="2" />
               <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
               <circle cx="5.5" cy="18.5" r="2.5" />
@@ -799,12 +855,14 @@
           </div>
           <h1 class="header-title">Shipment Tracker</h1>
           <p class="header-subtitle">
-            Manage aircraft spares shipments and operational timings. Signed in as <strong>SEAH CHIN YEONG, EDWARD ..</strong>
+            Manage aircraft spares shipments and operational timings. Signed in as <strong>SEAH CHIN YEONG, EDWARD
+              ..</strong>
           </p>
         </div>
         <div class="header-actions">
           <button id="btn-mode-config" class="btn btn-secondary btn-icon" title="Configure Data Source / SharePoint">
-            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
               <ellipse cx="12" cy="5" rx="9" ry="3" />
               <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
               <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
@@ -812,14 +870,16 @@
             <span>Mode: <strong id="current-mode-label" class="mode-text">MOCK</strong></span>
           </button>
           <button id="btn-new-shipment" class="btn btn-primary btn-icon">
-            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
             <span>New shipment</span>
           </button>
           <button id="btn-export-csv" class="btn btn-secondary btn-icon">
-            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
@@ -867,7 +927,8 @@
       <!-- Filters Bar -->
       <div class="filters-bar">
         <div class="search-input-wrapper">
-          <svg class="search-icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="search-icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
@@ -877,7 +938,8 @@
           <select id="filter-detachment" class="form-control select-filter">
             <option value="">All Detachments</option>
           </select>
-          <svg class="select-chevron icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="select-chevron icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
             <polyline points="6 9 12 15 18 9" />
           </svg>
         </div>
@@ -885,7 +947,8 @@
           <select id="filter-status" class="form-control select-filter">
             <option value="">All Statuses</option>
           </select>
-          <svg class="select-chevron icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="select-chevron icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
             <polyline points="6 9 12 15 18 9" />
           </svg>
         </div>
@@ -992,11 +1055,13 @@
         </div>
         <div class="form-group">
           <label class="form-label">Spares Description</label>
-          <textarea id="field-description" rows="2" class="form-control" placeholder="e.g. Flight control actuator assemblies with mounting brackets."></textarea>
+          <textarea id="field-description" rows="2" class="form-control"
+            placeholder="e.g. Flight control actuator assemblies with mounting brackets."></textarea>
         </div>
         <div class="form-group">
           <label class="form-label">Remarks</label>
-          <textarea id="field-remarks" rows="2" class="form-control" placeholder="e.g. Awaiting initial carrier acceptance and departure confirmation."></textarea>
+          <textarea id="field-remarks" rows="2" class="form-control"
+            placeholder="e.g. Awaiting initial carrier acceptance and departure confirmation."></textarea>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary modal-close-trigger">Cancel</button>
@@ -1031,7 +1096,8 @@
         </div>
         <div class="form-group">
           <label class="form-label">Event Log Details / Remarks</label>
-          <textarea id="status-update-remarks" rows="3" class="form-control" placeholder="e.g. Carrier accepted shipment; departed transit hub."></textarea>
+          <textarea id="status-update-remarks" rows="3" class="form-control"
+            placeholder="e.g. Carrier accepted shipment; departed transit hub."></textarea>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary modal-close-trigger">Cancel</button>
@@ -1076,24 +1142,47 @@
           </div>
         </div>
 
-        <div id="config-sharepoint-fields" class="config-subcard">
+        <div id="config-sharepoint-fields" class="config-subcard" style="display: none;">
           <h4 class="subcard-title">SharePoint Connection Details</h4>
           <div class="form-group">
             <label class="form-label">SharePoint Site URL</label>
-            <input type="text" id="cfg-sp-site" class="form-control" value="https://tenant.sharepoint.com/sites/LogisticsHub" />
+            <input type="text" id="cfg-sp-site" class="form-control"
+              value="https://tenant.sharepoint.com/sites/LogisticsHub"
+              placeholder="https://tenant.sharepoint.com/sites/LogisticsHub" />
           </div>
           <div class="form-group">
             <label class="form-label">SharePoint List Name</label>
-            <input type="text" id="cfg-sp-list" class="form-control" value="AircraftSparesShipments" />
+            <input type="text" id="cfg-sp-list" class="form-control" value="AircraftSparesShipments"
+              placeholder="AircraftSparesShipments" />
           </div>
         </div>
 
+        <div id="config-dataverse-fields" class="config-subcard" style="display: none;">
+          <h4 class="subcard-title">M365 Dataverse Connection Details</h4>
+          <div class="form-group">
+            <label class="form-label">Dataverse Web API Endpoint</label>
+            <input type="text" id="cfg-dv-url" class="form-control" value="https://org.crm.dynamics.com/api/data/v9.2"
+              placeholder="https://org.crm.dynamics.com/api/data/v9.2" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Dataverse Table Name</label>
+            <input type="text" id="cfg-dv-table" class="form-control" value="cr_spares_shipments"
+              placeholder="cr_spares_shipments" />
+          </div>
+        </div>
+
+        <div id="config-test-status" class="alert-banner info" style="display: none;"></div>
+
         <div class="note-box">
-          <strong>SharePoint Hosting Note:</strong><br/>
-          This standalone HTML app has all CSS and JavaScript bundled inline in a single file (<code class="code-tag">index.html</code>). You can copy or upload <code class="code-tag">index.html</code> directly into any SharePoint Site Assets or Document Library folder and open or link to it directly without any script blocking issues!
+          <strong>Backend Data Integration Note:</strong><br />
+          Select <strong>SharePoint List</strong> or <strong>M365 Dataverse</strong> to store all shipment data
+          remotely. Make sure the list/table has columns corresponding to Title/iodnumber, TailNo, Airwaybill, Status,
+          Destination, DemandDateTime, ETD, ETA, MPN, NSN, Description, Quantity, Remarks, NotificationActive, and
+          StatusHistoryJSON.
         </div>
       </div>
       <div class="modal-footer">
+        <button type="button" id="btn-test-config" class="btn btn-secondary">Test Connection</button>
         <button type="button" class="btn btn-secondary modal-close-trigger">Close</button>
         <button type="button" id="btn-save-config" class="btn btn-primary">Save Settings</button>
       </div>
@@ -1104,7 +1193,8 @@
   <div id="modal-delete" class="modal-backdrop hidden">
     <div class="modal-content modal-sm text-center">
       <div class="delete-icon-wrapper">
-        <svg class="icon-danger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="icon-danger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
           <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
           <line x1="12" y1="9" x2="12" y2="13" />
           <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -1123,7 +1213,8 @@
 
   <script>
     /**
-     * Spares Shipment Tracker - Single File Vanilla JavaScript
+     * Spares Shipment Tracker - Vanilla JavaScript Application
+     * Supports Local Mock (LocalStorage), SharePoint REST API, and M365 Dataverse Web API
      */
 
     const LOCAL_STORAGE_KEY = 'spares_shipments_vanilla_data_v1';
@@ -1259,36 +1350,33 @@
     ];
 
     // App State
-    let shipments = loadShipments();
+    let shipments = [];
     let selectedId = 'ship-005';
     let activeFilters = { searchQuery: '', detachment: '', status: '' };
     let backendConfig = loadConfig();
     let pendingDeleteId = null;
+    let isLoadingData = false;
+    let apiErrorMessage = null;
 
-    // --- Helper Functions ---
-    function loadShipments() {
-      try {
-        const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-        return raw ? JSON.parse(raw) : INITIAL_SHIPMENTS;
-      } catch {
-        return INITIAL_SHIPMENTS;
-      }
-    }
-
-    function saveShipments() {
-      try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(shipments));
-      } catch (err) {
-        console.error('Error saving shipments:', err);
-      }
-    }
-
+    // --- Config Management ---
     function loadConfig() {
       try {
         const raw = localStorage.getItem(CONFIG_STORAGE_KEY);
-        return raw ? JSON.parse(raw) : { mode: 'mock', siteUrl: '', listName: '' };
+        return raw ? JSON.parse(raw) : {
+          mode: 'mock',
+          siteUrl: window.location.origin && window.location.origin !== 'null' ? `${window.location.origin}/sites/LogisticsHub` : 'https://tenant.sharepoint.com/sites/LogisticsHub',
+          listName: 'AircraftSparesShipments',
+          dataverseUrl: 'https://org.crm.dynamics.com/api/data/v9.2',
+          dataverseTable: 'cr_spares_shipments'
+        };
       } catch {
-        return { mode: 'mock', siteUrl: '', listName: '' };
+        return {
+          mode: 'mock',
+          siteUrl: 'https://tenant.sharepoint.com/sites/LogisticsHub',
+          listName: 'AircraftSparesShipments',
+          dataverseUrl: 'https://org.crm.dynamics.com/api/data/v9.2',
+          dataverseTable: 'cr_spares_shipments'
+        };
       }
     }
 
@@ -1300,6 +1388,419 @@
       }
     }
 
+    function loadLocalStorageShipments() {
+      try {
+        const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : INITIAL_SHIPMENTS;
+      } catch {
+        return INITIAL_SHIPMENTS;
+      }
+    }
+
+    function saveLocalStorageShipments(data) {
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+      } catch (err) {
+        console.error('Error saving shipments to LocalStorage:', err);
+      }
+    }
+
+    // --- SharePoint REST API Backend Service ---
+    const SharePointService = {
+      async getRequestDigest(siteUrl) {
+        if (window._spPageContextInfo && window._spPageContextInfo.formDigestValue) {
+          return window._spPageContextInfo.formDigestValue;
+        }
+        const digestElem = document.getElementById('__REQUESTDIGEST');
+        if (digestElem && digestElem.value) return digestElem.value;
+
+        try {
+          const url = `${siteUrl.replace(/\/$/, '')}/_api/contextinfo`;
+          const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Accept': 'application/json;odata=verbose' }
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            return data.d?.GetContextWebInformation?.FormDigestValue || '';
+          }
+        } catch (e) {
+          console.warn('Could not fetch SharePoint Request Digest:', e);
+        }
+        return '';
+      },
+
+      mapItemFromSP(spItem) {
+        let history = [];
+        if (spItem.StatusHistoryJSON) {
+          try { history = JSON.parse(spItem.StatusHistoryJSON); } catch { history = []; }
+        } else if (spItem.history) {
+          try { history = typeof spItem.history === 'string' ? JSON.parse(spItem.history) : spItem.history; } catch { history = []; }
+        }
+
+        return {
+          id: String(spItem.Id || spItem.ID || spItem.id),
+          iodNumber: spItem.Title || spItem.iodNumber || spItem.IODNumber || '',
+          tailNo: spItem.TailNo || spItem.tailNo || spItem.TailNumber || '',
+          airwaybill: spItem.Airwaybill || spItem.airwaybill || '',
+          status: spItem.Status || spItem.status || 'Pending Airwaybill',
+          destination: spItem.Destination || spItem.destination || '',
+          demandDateTime: spItem.DemandDateTime || spItem.demandDateTime || '',
+          etd: spItem.ETD || spItem.etd || '',
+          eta: spItem.ETA || spItem.eta || '',
+          mpn: spItem.MPN || spItem.mpn || '',
+          nsn: spItem.NSN || spItem.nsn || '',
+          description: spItem.Description || spItem.description || spItem.SparesDescription || '',
+          quantity: parseInt(spItem.Quantity || spItem.quantity) || 1,
+          remarks: spItem.Remarks || spItem.remarks || '',
+          notificationActive: !!(spItem.NotificationActive ?? spItem.notificationActive),
+          history: Array.isArray(history) ? history : []
+        };
+      },
+
+      mapItemToSP(shipment) {
+        return {
+          Title: shipment.iodNumber || '',
+          TailNo: shipment.tailNo || '',
+          Airwaybill: shipment.airwaybill || '',
+          Status: shipment.status || 'Pending Airwaybill',
+          Destination: shipment.destination || '',
+          DemandDateTime: shipment.demandDateTime || '',
+          ETD: shipment.etd || '',
+          ETA: shipment.eta || '',
+          MPN: shipment.mpn || '',
+          NSN: shipment.nsn || '',
+          Description: shipment.description || '',
+          Quantity: shipment.quantity || 1,
+          Remarks: shipment.remarks || '',
+          NotificationActive: !!shipment.notificationActive,
+          StatusHistoryJSON: JSON.stringify(shipment.history || [])
+        };
+      },
+
+      async fetchShipments(config) {
+        const siteUrl = (config.siteUrl || '').replace(/\/$/, '');
+        const listName = config.listName || 'AircraftSparesShipments';
+        const endpoint = `${siteUrl}/_api/web/lists/getbytitle('${encodeURIComponent(listName)}')/items?$top=500`;
+
+        const res = await fetch(endpoint, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json;odata=nometadata' }
+        });
+
+        if (!res.ok) {
+          throw new Error(`SharePoint API HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        const data = await res.json();
+        const rawItems = data.value || data.d?.results || [];
+        return rawItems.map(item => this.mapItemFromSP(item));
+      },
+
+      async createShipment(config, shipment) {
+        const siteUrl = (config.siteUrl || '').replace(/\/$/, '');
+        const listName = config.listName || 'AircraftSparesShipments';
+        const endpoint = `${siteUrl}/_api/web/lists/getbytitle('${encodeURIComponent(listName)}')/items`;
+        const digest = await this.getRequestDigest(siteUrl);
+
+        const payload = this.mapItemToSP(shipment);
+
+        const headers = {
+          'Accept': 'application/json;odata=nometadata',
+          'Content-Type': 'application/json;odata=nometadata'
+        };
+        if (digest) headers['X-RequestDigest'] = digest;
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          throw new Error(`SharePoint Create HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        const data = await res.json();
+        return this.mapItemFromSP(data);
+      },
+
+      async updateShipment(config, shipment) {
+        const siteUrl = (config.siteUrl || '').replace(/\/$/, '');
+        const listName = config.listName || 'AircraftSparesShipments';
+        const endpoint = `${siteUrl}/_api/web/lists/getbytitle('${encodeURIComponent(listName)}')/items(${shipment.id})`;
+        const digest = await this.getRequestDigest(siteUrl);
+
+        const payload = this.mapItemToSP(shipment);
+
+        const headers = {
+          'Accept': 'application/json;odata=nometadata',
+          'Content-Type': 'application/json;odata=nometadata',
+          'X-HTTP-Method': 'MERGE',
+          'IF-MATCH': '*'
+        };
+        if (digest) headers['X-RequestDigest'] = digest;
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok && res.status !== 204) {
+          throw new Error(`SharePoint Update HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        return shipment;
+      },
+
+      async deleteShipment(config, id) {
+        const siteUrl = (config.siteUrl || '').replace(/\/$/, '');
+        const listName = config.listName || 'AircraftSparesShipments';
+        const endpoint = `${siteUrl}/_api/web/lists/getbytitle('${encodeURIComponent(listName)}')/items(${id})`;
+        const digest = await this.getRequestDigest(siteUrl);
+
+        const headers = {
+          'Accept': 'application/json;odata=nometadata',
+          'X-HTTP-Method': 'DELETE',
+          'IF-MATCH': '*'
+        };
+        if (digest) headers['X-RequestDigest'] = digest;
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: headers
+        });
+
+        if (!res.ok && res.status !== 204) {
+          throw new Error(`SharePoint Delete HTTP ${res.status}: ${res.statusText}`);
+        }
+      }
+    };
+
+    // --- M365 Dataverse Web API Service ---
+    const DataverseService = {
+      mapItemFromDV(dvItem) {
+        let history = [];
+        if (dvItem.cr_statushistoryjson) {
+          try { history = JSON.parse(dvItem.cr_statushistoryjson); } catch { history = []; }
+        }
+
+        return {
+          id: dvItem.cr_spares_shipmentid || dvItem.cr_shipmentid || dvItem.id,
+          iodNumber: dvItem.cr_iodnumber || dvItem.cr_title || dvItem.name || '',
+          tailNo: dvItem.cr_tailno || '',
+          airwaybill: dvItem.cr_airwaybill || '',
+          status: dvItem.cr_status || 'Pending Airwaybill',
+          destination: dvItem.cr_destination || '',
+          demandDateTime: dvItem.cr_demanddatetime || '',
+          etd: dvItem.cr_etd || '',
+          eta: dvItem.cr_eta || '',
+          mpn: dvItem.cr_mpn || '',
+          nsn: dvItem.cr_nsn || '',
+          description: dvItem.cr_description || '',
+          quantity: parseInt(dvItem.cr_quantity) || 1,
+          remarks: dvItem.cr_remarks || '',
+          notificationActive: !!dvItem.cr_notificationactive,
+          history: Array.isArray(history) ? history : []
+        };
+      },
+
+      mapItemToDV(shipment) {
+        return {
+          cr_iodnumber: shipment.iodNumber || '',
+          cr_tailno: shipment.tailNo || '',
+          cr_airwaybill: shipment.airwaybill || '',
+          cr_status: shipment.status || 'Pending Airwaybill',
+          cr_destination: shipment.destination || '',
+          cr_demanddatetime: shipment.demandDateTime || '',
+          cr_etd: shipment.etd || '',
+          cr_eta: shipment.eta || '',
+          cr_mpn: shipment.mpn || '',
+          cr_nsn: shipment.nsn || '',
+          cr_description: shipment.description || '',
+          cr_quantity: shipment.quantity || 1,
+          cr_remarks: shipment.remarks || '',
+          cr_notificationactive: !!shipment.notificationActive,
+          cr_statushistoryjson: JSON.stringify(shipment.history || [])
+        };
+      },
+
+      async fetchShipments(config) {
+        const orgUrl = (config.dataverseUrl || 'https://org.crm.dynamics.com/api/data/v9.2').replace(/\/$/, '');
+        const tableName = config.dataverseTable || 'cr_spares_shipments';
+        const endpoint = `${orgUrl}/${tableName}?$top=500`;
+
+        const res = await fetch(endpoint, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'OData-MaxVersion': '4.0',
+            'OData-Version': '4.0'
+          }
+        });
+
+        if (!res.ok) {
+          throw new Error(`Dataverse API HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        const data = await res.json();
+        const rawItems = data.value || [];
+        return rawItems.map(item => this.mapItemFromDV(item));
+      },
+
+      async createShipment(config, shipment) {
+        const orgUrl = (config.dataverseUrl || 'https://org.crm.dynamics.com/api/data/v9.2').replace(/\/$/, '');
+        const tableName = config.dataverseTable || 'cr_spares_shipments';
+        const endpoint = `${orgUrl}/${tableName}`;
+
+        const payload = this.mapItemToDV(shipment);
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json; charset=utf-8',
+            'OData-MaxVersion': '4.0',
+            'OData-Version': '4.0',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          throw new Error(`Dataverse Create HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        const data = await res.json();
+        return this.mapItemFromDV(data);
+      },
+
+      async updateShipment(config, shipment) {
+        const orgUrl = (config.dataverseUrl || 'https://org.crm.dynamics.com/api/data/v9.2').replace(/\/$/, '');
+        const tableName = config.dataverseTable || 'cr_spares_shipments';
+        const endpoint = `${orgUrl}/${tableName}(${shipment.id})`;
+
+        const payload = this.mapItemToDV(shipment);
+
+        const res = await fetch(endpoint, {
+          method: 'PATCH',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json; charset=utf-8',
+            'OData-MaxVersion': '4.0',
+            'OData-Version': '4.0'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok && res.status !== 204) {
+          throw new Error(`Dataverse Update HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        return shipment;
+      },
+
+      async deleteShipment(config, id) {
+        const orgUrl = (config.dataverseUrl || 'https://org.crm.dynamics.com/api/data/v9.2').replace(/\/$/, '');
+        const tableName = config.dataverseTable || 'cr_spares_shipments';
+        const endpoint = `${orgUrl}/${tableName}(${id})`;
+
+        const res = await fetch(endpoint, {
+          method: 'DELETE',
+          headers: {
+            'Accept': 'application/json',
+            'OData-MaxVersion': '4.0',
+            'OData-Version': '4.0'
+          }
+        });
+
+        if (!res.ok && res.status !== 204) {
+          throw new Error(`Dataverse Delete HTTP ${res.status}: ${res.statusText}`);
+        }
+      }
+    };
+
+    // --- Unified Shipment Data Service ---
+    const ShipmentDataService = {
+      async fetchAll(config) {
+        const mode = config.mode || 'mock';
+        if (mode === 'sharepoint') {
+          return await SharePointService.fetchShipments(config);
+        } else if (mode === 'dataverse') {
+          return await DataverseService.fetchShipments(config);
+        } else {
+          return loadLocalStorageShipments();
+        }
+      },
+
+      async save(config, shipmentData) {
+        const mode = config.mode || 'mock';
+        const isEdit = !!shipmentData.id;
+
+        if (mode === 'sharepoint') {
+          if (isEdit) {
+            return await SharePointService.updateShipment(config, shipmentData);
+          } else {
+            return await SharePointService.createShipment(config, shipmentData);
+          }
+        } else if (mode === 'dataverse') {
+          if (isEdit) {
+            return await DataverseService.updateShipment(config, shipmentData);
+          } else {
+            return await DataverseService.createShipment(config, shipmentData);
+          }
+        } else {
+          let list = loadLocalStorageShipments();
+          if (isEdit) {
+            list = list.map(s => s.id === shipmentData.id ? { ...s, ...shipmentData } : s);
+          } else {
+            const newId = `ship-${Date.now()}`;
+            const newShipment = { ...shipmentData, id: newId };
+            list.unshift(newShipment);
+            shipmentData = newShipment;
+          }
+          saveLocalStorageShipments(list);
+          return shipmentData;
+        }
+      },
+
+      async delete(config, id) {
+        const mode = config.mode || 'mock';
+        if (mode === 'sharepoint') {
+          await SharePointService.deleteShipment(config, id);
+        } else if (mode === 'dataverse') {
+          await DataverseService.deleteShipment(config, id);
+        } else {
+          let list = loadLocalStorageShipments();
+          list = list.filter(s => s.id !== id);
+          saveLocalStorageShipments(list);
+        }
+      },
+
+      async testConnection(config) {
+        const mode = config.mode || 'mock';
+        if (mode === 'mock') {
+          return { success: true, message: 'Local Mock mode active. Interactive prototype stored in LocalStorage.' };
+        } else if (mode === 'sharepoint') {
+          try {
+            const list = await SharePointService.fetchShipments(config);
+            return { success: true, message: `Successfully connected to SharePoint List "${config.listName || 'AircraftSparesShipments'}"! Loaded ${list.length} item(s).` };
+          } catch (e) {
+            return { success: false, message: `SharePoint Connection Error: ${e.message}` };
+          }
+        } else if (mode === 'dataverse') {
+          try {
+            const list = await DataverseService.fetchShipments(config);
+            return { success: true, message: `Successfully connected to Dataverse Table "${config.dataverseTable || 'cr_spares_shipments'}"! Loaded ${list.length} item(s).` };
+          } catch (e) {
+            return { success: false, message: `Dataverse Connection Error: ${e.message}` };
+          }
+        }
+      }
+    };
+
+    // --- Helper Utilities ---
     function getStatusBadgeClass(status) {
       switch (status) {
         case 'Pending Airwaybill': return 'status-pending-airwaybill';
@@ -1337,7 +1838,30 @@
       return `<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
     }
 
-    // --- Render Engine ---
+    // --- Main Application Data Loader & Renderer ---
+    async function loadApplicationData() {
+      isLoadingData = true;
+      apiErrorMessage = null;
+      renderQueueTable();
+
+      try {
+        shipments = await ShipmentDataService.fetchAll(backendConfig);
+        if (!selectedId || !shipments.find(s => s.id === selectedId)) {
+          selectedId = shipments[0]?.id || null;
+        }
+      } catch (err) {
+        console.error(`Error loading data in mode [${backendConfig.mode}]:`, err);
+        apiErrorMessage = `${err.message || err}. Falling back to local data prototype.`;
+        shipments = loadLocalStorageShipments();
+        if (!selectedId || !shipments.find(s => s.id === selectedId)) {
+          selectedId = shipments[0]?.id || null;
+        }
+      } finally {
+        isLoadingData = false;
+        renderApp();
+      }
+    }
+
     function renderApp() {
       renderHeaderAndMetrics();
       populateDropdownFilters();
@@ -1473,14 +1997,24 @@
       const tbody = document.getElementById('queue-table-body');
       if (!tbody) return;
 
-      const filtered = getFilteredShipments();
-
-      if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 32px;">No matching shipments found.</td></tr>';
+      if (isLoadingData) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #0284c7; padding: 32px;"><span class="spinner"></span> Synchronizing with backend API...</td></tr>';
         return;
       }
 
-      tbody.innerHTML = filtered.map(item => {
+      let errorBannerHtml = '';
+      if (apiErrorMessage) {
+        errorBannerHtml = `<tr><td colspan="5" style="padding: 12px 16px;"><div class="alert-banner error" style="margin: 0;">⚠️ ${apiErrorMessage}</div></td></tr>`;
+      }
+
+      const filtered = getFilteredShipments();
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = errorBannerHtml + '<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 32px;">No matching shipments found.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = errorBannerHtml + filtered.map(item => {
         const isSelected = item.id === selectedId;
         const badgeClass = getStatusBadgeClass(item.status);
         const bellSvg = getBellIcon(item.notificationActive);
@@ -1564,7 +2098,7 @@
       // Table row click & table action buttons delegation
       const tbody = document.getElementById('queue-table-body');
       if (tbody) {
-        tbody.addEventListener('click', (e) => {
+        tbody.addEventListener('click', async (e) => {
           const tr = e.target.closest('tr');
           if (!tr) return;
           const id = tr.getAttribute('data-id');
@@ -1578,8 +2112,14 @@
           if (btnBell) {
             e.stopPropagation();
             const item = shipments.find(s => s.id === id);
-            if (item) item.notificationActive = !item.notificationActive;
-            saveShipments();
+            if (item) {
+              item.notificationActive = !item.notificationActive;
+              try {
+                await ShipmentDataService.save(backendConfig, item);
+              } catch (err) {
+                console.error('Error toggling notification:', err);
+              }
+            }
             renderQueueTable();
             return;
           }
@@ -1616,7 +2156,7 @@
       if (btnExport) btnExport.addEventListener('click', exportCSV);
 
       const btnModeConfig = document.getElementById('btn-mode-config');
-      if (btnModeConfig) btnModeConfig.addEventListener('click', () => openModal('modal-config'));
+      if (btnModeConfig) btnModeConfig.addEventListener('click', () => openConfigModalUI());
 
       const btnAddEvent = document.getElementById('btn-add-event');
       if (btnAddEvent) {
@@ -1643,45 +2183,77 @@
       // Shipment Form submit
       const formShipment = document.getElementById('form-shipment');
       if (formShipment) {
-        formShipment.addEventListener('submit', (e) => {
+        formShipment.addEventListener('submit', async (e) => {
           e.preventDefault();
-          saveShipmentFromForm();
+          await saveShipmentFromForm();
         });
       }
 
       // Status Update Form submit
       const formStatusUpdate = document.getElementById('form-status-update');
       if (formStatusUpdate) {
-        formStatusUpdate.addEventListener('submit', (e) => {
+        formStatusUpdate.addEventListener('submit', async (e) => {
           e.preventDefault();
-          saveStatusUpdateFromForm();
+          await saveStatusUpdateFromForm();
         });
       }
 
       // Delete Confirm
       const btnConfirmDelete = document.getElementById('btn-confirm-delete');
       if (btnConfirmDelete) {
-        btnConfirmDelete.addEventListener('click', () => {
+        btnConfirmDelete.addEventListener('click', async () => {
           if (!pendingDeleteId) return;
-          shipments = shipments.filter(s => s.id !== pendingDeleteId);
-          if (selectedId === pendingDeleteId) {
-            selectedId = shipments[0]?.id || null;
+          const idToDelete = pendingDeleteId;
+          try {
+            await ShipmentDataService.delete(backendConfig, idToDelete);
+            shipments = shipments.filter(s => s.id !== idToDelete);
+            if (selectedId === idToDelete) {
+              selectedId = shipments[0]?.id || null;
+            }
+          } catch (err) {
+            alert(`Error deleting shipment: ${err.message}`);
           }
-          saveShipments();
           closeModal('modal-delete');
           renderApp();
+        });
+      }
+
+      // Backend Config Radio buttons toggle
+      document.querySelectorAll('input[name="backend-mode"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+          updateConfigSubcardVisibility(e.target.value);
+        });
+      });
+
+      // Test Connection button
+      const btnTestConfig = document.getElementById('btn-test-config');
+      if (btnTestConfig) {
+        btnTestConfig.addEventListener('click', async () => {
+          const tempConfig = gatherConfigFromUI();
+          const statusContainer = document.getElementById('config-test-status');
+          if (statusContainer) {
+            statusContainer.style.display = 'block';
+            statusContainer.className = 'alert-banner info';
+            statusContainer.innerHTML = '<span class="spinner"></span> Testing connection to backend API...';
+          }
+
+          const res = await ShipmentDataService.testConnection(tempConfig);
+          if (statusContainer) {
+            statusContainer.style.display = 'block';
+            statusContainer.className = res.success ? 'alert-banner success' : 'alert-banner error';
+            statusContainer.innerHTML = (res.success ? '✅ ' : '❌ ') + res.message;
+          }
         });
       }
 
       // Config save
       const btnSaveConfig = document.getElementById('btn-save-config');
       if (btnSaveConfig) {
-        btnSaveConfig.addEventListener('click', () => {
-          const selectedMode = document.querySelector('input[name="backend-mode"]:checked')?.value || 'mock';
-          backendConfig.mode = selectedMode;
+        btnSaveConfig.addEventListener('click', async () => {
+          backendConfig = gatherConfigFromUI();
           saveConfig();
           closeModal('modal-config');
-          renderHeaderAndMetrics();
+          await loadApplicationData();
         });
       }
     }
@@ -1694,6 +2266,57 @@
     function closeModal(id) {
       const modal = document.getElementById(id);
       if (modal) modal.classList.add('hidden');
+    }
+
+    function gatherConfigFromUI() {
+      const selectedMode = document.querySelector('input[name="backend-mode"]:checked')?.value || 'mock';
+      const siteUrl = document.getElementById('cfg-sp-site')?.value.trim() || '';
+      const listName = document.getElementById('cfg-sp-list')?.value.trim() || 'AircraftSparesShipments';
+      const dataverseUrl = document.getElementById('cfg-dv-url')?.value.trim() || 'https://org.crm.dynamics.com/api/data/v9.2';
+      const dataverseTable = document.getElementById('cfg-dv-table')?.value.trim() || 'cr_spares_shipments';
+
+      return {
+        mode: selectedMode,
+        siteUrl,
+        listName,
+        dataverseUrl,
+        dataverseTable
+      };
+    }
+
+    function updateConfigSubcardVisibility(mode) {
+      const spSubcard = document.getElementById('config-sharepoint-fields');
+      const dvSubcard = document.getElementById('config-dataverse-fields');
+
+      if (spSubcard) spSubcard.style.display = (mode === 'sharepoint') ? 'block' : 'none';
+      if (dvSubcard) dvSubcard.style.display = (mode === 'dataverse') ? 'block' : 'none';
+    }
+
+    function openConfigModalUI() {
+      const modeRadio = document.querySelector(`input[name="backend-mode"][value="${backendConfig.mode}"]`);
+      if (modeRadio) modeRadio.checked = true;
+
+      const spSiteInput = document.getElementById('cfg-sp-site');
+      if (spSiteInput) spSiteInput.value = backendConfig.siteUrl || '';
+
+      const spListInput = document.getElementById('cfg-sp-list');
+      if (spListInput) spListInput.value = backendConfig.listName || 'AircraftSparesShipments';
+
+      const dvUrlInput = document.getElementById('cfg-dv-url');
+      if (dvUrlInput) dvUrlInput.value = backendConfig.dataverseUrl || 'https://org.crm.dynamics.com/api/data/v9.2';
+
+      const dvTableInput = document.getElementById('cfg-dv-table');
+      if (dvTableInput) dvTableInput.value = backendConfig.dataverseTable || 'cr_spares_shipments';
+
+      const testStatus = document.getElementById('config-test-status');
+      if (testStatus) {
+        testStatus.className = 'alert-banner info';
+        testStatus.style.display = 'none';
+        testStatus.innerHTML = '';
+      }
+
+      updateConfigSubcardVisibility(backendConfig.mode);
+      openModal('modal-config');
     }
 
     function openShipmentModal(shipmentId) {
@@ -1740,12 +2363,13 @@
       openModal('modal-shipment');
     }
 
-    function saveShipmentFromForm() {
+    async function saveShipmentFromForm() {
       const id = document.getElementById('shipment-id').value;
       const isEdit = !!id;
       const timeStr = getCurrentTimestamp();
 
       const formData = {
+        id: id || undefined,
         iodNumber: document.getElementById('field-iod').value.trim(),
         tailNo: document.getElementById('field-tail').value.trim(),
         airwaybill: document.getElementById('field-airwaybill').value.trim(),
@@ -1761,32 +2385,32 @@
         remarks: document.getElementById('field-remarks').value.trim(),
       };
 
-      if (isEdit) {
-        shipments = shipments.map(s => {
-          if (s.id === id) {
-            const statusChanged = s.status !== formData.status;
-            const newHistory = statusChanged
-              ? [{ id: `hist-${Date.now()}`, status: formData.status, timestamp: timeStr, description: `Status updated to ${formData.status}.` }, ...s.history]
-              : s.history;
-            return { ...s, ...formData, history: newHistory };
-          }
-          return s;
-        });
-      } else {
-        const newId = `ship-${Date.now()}`;
-        const newShipment = {
-          ...formData,
-          id: newId,
-          notificationActive: false,
-          history: [{ id: `hist-${Date.now()}`, status: formData.status, timestamp: timeStr, description: `New shipment recorded. Status set to ${formData.status}.` }]
-        };
-        shipments.unshift(newShipment);
-        selectedId = newId;
+      const existing = isEdit ? shipments.find(s => s.id === id) : null;
+      const statusChanged = existing ? (existing.status !== formData.status) : false;
+
+      let newHistory = existing?.history ? [...existing.history] : [];
+      if (!isEdit) {
+        newHistory = [{ id: `hist-${Date.now()}`, status: formData.status, timestamp: timeStr, description: `New shipment recorded. Status set to ${formData.status}.` }];
+      } else if (statusChanged) {
+        newHistory = [{ id: `hist-${Date.now()}`, status: formData.status, timestamp: timeStr, description: `Status updated to ${formData.status}.` }, ...newHistory];
       }
 
-      saveShipments();
-      closeModal('modal-shipment');
-      renderApp();
+      const shipmentToSave = {
+        ...formData,
+        notificationActive: existing ? existing.notificationActive : false,
+        history: newHistory
+      };
+
+      try {
+        const saved = await ShipmentDataService.save(backendConfig, shipmentToSave);
+        if (!isEdit && saved?.id) {
+          selectedId = saved.id;
+        }
+        closeModal('modal-shipment');
+        await loadApplicationData();
+      } catch (err) {
+        alert(`Error saving shipment to backend (${backendConfig.mode}): ${err.message}`);
+      }
     }
 
     function openStatusUpdateModal(shipmentId) {
@@ -1799,26 +2423,33 @@
       openModal('modal-status-update');
     }
 
-    function saveStatusUpdateFromForm() {
+    async function saveStatusUpdateFromForm() {
       const id = document.getElementById('status-update-shipment-id').value;
+      const s = shipments.find(item => item.id === id);
+      if (!s) return;
+
       const newStatus = document.getElementById('status-update-select').value;
       const remarks = document.getElementById('status-update-remarks').value.trim() || `Status updated to ${newStatus}`;
       const timeStr = getCurrentTimestamp();
 
-      shipments = shipments.map(s => {
-        if (s.id === id) {
-          return {
-            ...s,
-            status: newStatus,
-            history: [{ id: `hist-${Date.now()}`, status: newStatus, timestamp: timeStr, description: remarks }, ...s.history]
-          };
-        }
-        return s;
-      });
+      const updatedHistory = [
+        { id: `hist-${Date.now()}`, status: newStatus, timestamp: timeStr, description: remarks },
+        ...(s.history || [])
+      ];
 
-      saveShipments();
-      closeModal('modal-status-update');
-      renderApp();
+      const updatedShipment = {
+        ...s,
+        status: newStatus,
+        history: updatedHistory
+      };
+
+      try {
+        await ShipmentDataService.save(backendConfig, updatedShipment);
+        closeModal('modal-status-update');
+        await loadApplicationData();
+      } catch (err) {
+        alert(`Error updating status: ${err.message}`);
+      }
     }
 
     function openDeleteModal(shipmentId) {
@@ -1840,18 +2471,18 @@
       const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
 
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = 'Aircraft_Spares_Shipments_2026.csv';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const anchor = document.createElement('a');
+      anchor.href = URL.createObjectURL(blob);
+      anchor.download = 'Aircraft_Spares_Shipments_2026.csv';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
     }
 
     // --- Initialize App ---
-    function initApp() {
+    async function initApp() {
       setupEventListeners();
-      renderApp();
+      await loadApplicationData();
     }
 
     if (document.readyState === 'loading') {
@@ -1861,4 +2492,5 @@
     }
   </script>
 </body>
+
 </html>
