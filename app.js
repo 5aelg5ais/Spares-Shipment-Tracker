@@ -1,6 +1,6 @@
 /**
  * Spares Shipment Tracker - Vanilla JavaScript Application
- * Supports Local Mock (LocalStorage), SharePoint REST API, and M365 Dataverse Web API
+ * Supports Local Mock (LocalStorage) and SharePoint REST API
  */
 
 const LOCAL_STORAGE_KEY = 'spares_shipments_vanilla_data_v1';
@@ -151,17 +151,13 @@ function loadConfig() {
     return raw ? JSON.parse(raw) : {
       mode: 'mock',
       siteUrl: window.location.origin && window.location.origin !== 'null' ? `${window.location.origin}/sites/LogisticsHub` : 'https://tenant.sharepoint.com/sites/LogisticsHub',
-      listName: 'AircraftSparesShipments',
-      dataverseUrl: 'https://org.crm.dynamics.com/api/data/v9.2',
-      dataverseTable: 'cr_spares_shipments'
+      listName: 'AircraftSparesShipments'
     };
   } catch {
     return {
       mode: 'mock',
       siteUrl: 'https://tenant.sharepoint.com/sites/LogisticsHub',
-      listName: 'AircraftSparesShipments',
-      dataverseUrl: 'https://org.crm.dynamics.com/api/data/v9.2',
-      dataverseTable: 'cr_spares_shipments'
+      listName: 'AircraftSparesShipments'
     };
   }
 }
@@ -265,17 +261,45 @@ const SharePointService = {
   },
 
   async fetchShipments(config) {
-    const siteUrl = (config.siteUrl || '').replace(/\/$/, '');
-    const listName = config.listName || 'AircraftSparesShipments';
+    const siteUrl = (config.siteUrl || '').trim().replace(/\/$/, '');
+    const listName = (config.listName || 'AircraftSparesShipments').trim();
+
+    if (!siteUrl) {
+      const err = new Error('SharePoint Site URL is empty. Please enter a valid site URL (e.g. https://tenant.sharepoint.com/sites/LogisticsHub).');
+      err.code = 'ERR_MISSING_URL';
+      throw err;
+    }
+
     const endpoint = `${siteUrl}/_api/web/lists/getbytitle('${encodeURIComponent(listName)}')/items?$top=500`;
 
-    const res = await fetch(endpoint, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json;odata=nometadata' }
-    });
+    let res;
+    try {
+      res = await fetch(endpoint, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json;odata=nometadata' }
+      });
+    } catch (networkErr) {
+      const err = new Error(`Failed to connect to "${endpoint}". Please verify site URL, network connectivity, or CORS settings. (${networkErr.message})`);
+      err.code = 'ERR_NETWORK_OR_CORS';
+      throw err;
+    }
 
     if (!res.ok) {
-      throw new Error(`SharePoint API HTTP ${res.status}: ${res.statusText}`);
+      let errorDetail = res.statusText || 'Request Failed';
+      try {
+        const errData = await res.json();
+        if (errData?.['odata.error']?.message?.value) {
+          errorDetail = errData['odata.error'].message.value;
+        } else if (errData?.error?.message) {
+          errorDetail = errData.error.message;
+        } else if (errData?.message) {
+          errorDetail = errData.message;
+        }
+      } catch (_) { }
+      const err = new Error(`HTTP ${res.status} (${res.statusText || 'Error'}): ${errorDetail}`);
+      err.status = res.status;
+      err.code = `HTTP_${res.status}`;
+      throw err;
     }
 
     const data = await res.json();
@@ -364,157 +388,12 @@ const SharePointService = {
   }
 };
 
-// --- M365 Dataverse Web API Service ---
-const DataverseService = {
-  mapItemFromDV(dvItem) {
-    let history = [];
-    if (dvItem.cr_statushistoryjson) {
-      try { history = JSON.parse(dvItem.cr_statushistoryjson); } catch { history = []; }
-    }
-
-    return {
-      id: dvItem.cr_spares_shipmentid || dvItem.cr_shipmentid || dvItem.id,
-      iodNumber: dvItem.cr_iodnumber || dvItem.cr_title || dvItem.name || '',
-      tailNo: dvItem.cr_tailno || '',
-      airwaybill: dvItem.cr_airwaybill || '',
-      status: dvItem.cr_status || 'Pending Airwaybill',
-      destination: dvItem.cr_destination || '',
-      demandDateTime: dvItem.cr_demanddatetime || '',
-      etd: dvItem.cr_etd || '',
-      eta: dvItem.cr_eta || '',
-      mpn: dvItem.cr_mpn || '',
-      nsn: dvItem.cr_nsn || '',
-      description: dvItem.cr_description || '',
-      quantity: parseInt(dvItem.cr_quantity) || 1,
-      remarks: dvItem.cr_remarks || '',
-      notificationActive: !!dvItem.cr_notificationactive,
-      history: Array.isArray(history) ? history : []
-    };
-  },
-
-  mapItemToDV(shipment) {
-    return {
-      cr_iodnumber: shipment.iodNumber || '',
-      cr_tailno: shipment.tailNo || '',
-      cr_airwaybill: shipment.airwaybill || '',
-      cr_status: shipment.status || 'Pending Airwaybill',
-      cr_destination: shipment.destination || '',
-      cr_demanddatetime: shipment.demandDateTime || '',
-      cr_etd: shipment.etd || '',
-      cr_eta: shipment.eta || '',
-      cr_mpn: shipment.mpn || '',
-      cr_nsn: shipment.nsn || '',
-      cr_description: shipment.description || '',
-      cr_quantity: shipment.quantity || 1,
-      cr_remarks: shipment.remarks || '',
-      cr_notificationactive: !!shipment.notificationActive,
-      cr_statushistoryjson: JSON.stringify(shipment.history || [])
-    };
-  },
-
-  async fetchShipments(config) {
-    const orgUrl = (config.dataverseUrl || 'https://org.crm.dynamics.com/api/data/v9.2').replace(/\/$/, '');
-    const tableName = config.dataverseTable || 'cr_spares_shipments';
-    const endpoint = `${orgUrl}/${tableName}?$top=500`;
-
-    const res = await fetch(endpoint, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'OData-MaxVersion': '4.0',
-        'OData-Version': '4.0'
-      }
-    });
-
-    if (!res.ok) {
-      throw new Error(`Dataverse API HTTP ${res.status}: ${res.statusText}`);
-    }
-
-    const data = await res.json();
-    const rawItems = data.value || [];
-    return rawItems.map(item => this.mapItemFromDV(item));
-  },
-
-  async createShipment(config, shipment) {
-    const orgUrl = (config.dataverseUrl || 'https://org.crm.dynamics.com/api/data/v9.2').replace(/\/$/, '');
-    const tableName = config.dataverseTable || 'cr_spares_shipments';
-    const endpoint = `${orgUrl}/${tableName}`;
-
-    const payload = this.mapItemToDV(shipment);
-
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json; charset=utf-8',
-        'OData-MaxVersion': '4.0',
-        'OData-Version': '4.0',
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) {
-      throw new Error(`Dataverse Create HTTP ${res.status}: ${res.statusText}`);
-    }
-
-    const data = await res.json();
-    return this.mapItemFromDV(data);
-  },
-
-  async updateShipment(config, shipment) {
-    const orgUrl = (config.dataverseUrl || 'https://org.crm.dynamics.com/api/data/v9.2').replace(/\/$/, '');
-    const tableName = config.dataverseTable || 'cr_spares_shipments';
-    const endpoint = `${orgUrl}/${tableName}(${shipment.id})`;
-
-    const payload = this.mapItemToDV(shipment);
-
-    const res = await fetch(endpoint, {
-      method: 'PATCH',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json; charset=utf-8',
-        'OData-MaxVersion': '4.0',
-        'OData-Version': '4.0'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok && res.status !== 204) {
-      throw new Error(`Dataverse Update HTTP ${res.status}: ${res.statusText}`);
-    }
-
-    return shipment;
-  },
-
-  async deleteShipment(config, id) {
-    const orgUrl = (config.dataverseUrl || 'https://org.crm.dynamics.com/api/data/v9.2').replace(/\/$/, '');
-    const tableName = config.dataverseTable || 'cr_spares_shipments';
-    const endpoint = `${orgUrl}/${tableName}(${id})`;
-
-    const res = await fetch(endpoint, {
-      method: 'DELETE',
-      headers: {
-        'Accept': 'application/json',
-        'OData-MaxVersion': '4.0',
-        'OData-Version': '4.0'
-      }
-    });
-
-    if (!res.ok && res.status !== 204) {
-      throw new Error(`Dataverse Delete HTTP ${res.status}: ${res.statusText}`);
-    }
-  }
-};
-
 // --- Unified Shipment Data Service ---
 const ShipmentDataService = {
   async fetchAll(config) {
     const mode = config.mode || 'mock';
     if (mode === 'sharepoint') {
       return await SharePointService.fetchShipments(config);
-    } else if (mode === 'dataverse') {
-      return await DataverseService.fetchShipments(config);
     } else {
       return loadLocalStorageShipments();
     }
@@ -529,12 +408,6 @@ const ShipmentDataService = {
         return await SharePointService.updateShipment(config, shipmentData);
       } else {
         return await SharePointService.createShipment(config, shipmentData);
-      }
-    } else if (mode === 'dataverse') {
-      if (isEdit) {
-        return await DataverseService.updateShipment(config, shipmentData);
-      } else {
-        return await DataverseService.createShipment(config, shipmentData);
       }
     } else {
       let list = loadLocalStorageShipments();
@@ -555,8 +428,6 @@ const ShipmentDataService = {
     const mode = config.mode || 'mock';
     if (mode === 'sharepoint') {
       await SharePointService.deleteShipment(config, id);
-    } else if (mode === 'dataverse') {
-      await DataverseService.deleteShipment(config, id);
     } else {
       let list = loadLocalStorageShipments();
       list = list.filter(s => s.id !== id);
@@ -567,22 +438,33 @@ const ShipmentDataService = {
   async testConnection(config) {
     const mode = config.mode || 'mock';
     if (mode === 'mock') {
-      return { success: true, message: 'Local Mock mode active. Interactive prototype stored in LocalStorage.' };
+      return {
+        success: true,
+        code: 'OK_MOCK',
+        message: 'Local Mock mode active. Interactive prototype stored in LocalStorage.'
+      };
     } else if (mode === 'sharepoint') {
       try {
         const list = await SharePointService.fetchShipments(config);
-        return { success: true, message: `Successfully connected to SharePoint List "${config.listName || 'AircraftSparesShipments'}"! Loaded ${list.length} item(s).` };
+        return {
+          success: true,
+          code: 'OK_200',
+          message: `Successfully connected to SharePoint List "${config.listName || 'AircraftSparesShipments'}"! Loaded ${list.length} item(s).`
+        };
       } catch (e) {
-        return { success: false, message: `SharePoint Connection Error: ${e.message}` };
-      }
-    } else if (mode === 'dataverse') {
-      try {
-        const list = await DataverseService.fetchShipments(config);
-        return { success: true, message: `Successfully connected to Dataverse Table "${config.dataverseTable || 'cr_spares_shipments'}"! Loaded ${list.length} item(s).` };
-      } catch (e) {
-        return { success: false, message: `Dataverse Connection Error: ${e.message}` };
+        const errorCode = e.code || (e.status ? `HTTP_${e.status}` : 'ERR_CONNECTION_FAILED');
+        return {
+          success: false,
+          code: errorCode,
+          message: e.message
+        };
       }
     }
+    return {
+      success: false,
+      code: 'ERR_UNKNOWN_MODE',
+      message: `Unknown backend mode selected: "${mode}".`
+    };
   }
 };
 
@@ -1026,8 +908,19 @@ function setupEventListeners() {
       const res = await ShipmentDataService.testConnection(tempConfig);
       if (statusContainer) {
         statusContainer.style.display = 'block';
-        statusContainer.className = res.success ? 'alert-banner success' : 'alert-banner error';
-        statusContainer.innerHTML = (res.success ? '✅ ' : '❌ ') + res.message;
+        if (res.success) {
+          statusContainer.className = 'alert-banner success';
+          statusContainer.innerHTML = `✅ <strong>Connection Successful!</strong><br/>${res.message}`;
+        } else {
+          statusContainer.className = 'alert-banner error';
+          statusContainer.innerHTML = `
+            <div style="width: 100%;">
+              <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">❌ Connection Failed</div>
+              <div style="margin-bottom: 4px;"><strong>Error Code:</strong> <span style="background: rgba(185, 28, 28, 0.15); color: #B91C1C; font-family: monospace; font-size: 12px; font-weight: 700; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(185, 28, 28, 0.3);">${res.code || 'ERR_CONNECTION_FAILED'}</span></div>
+              <div><strong>Error Message:</strong> ${res.message}</div>
+            </div>
+          `;
+        }
       }
     });
   }
@@ -1058,24 +951,17 @@ function gatherConfigFromUI() {
   const selectedMode = document.querySelector('input[name="backend-mode"]:checked')?.value || 'mock';
   const siteUrl = document.getElementById('cfg-sp-site')?.value.trim() || '';
   const listName = document.getElementById('cfg-sp-list')?.value.trim() || 'AircraftSparesShipments';
-  const dataverseUrl = document.getElementById('cfg-dv-url')?.value.trim() || 'https://org.crm.dynamics.com/api/data/v9.2';
-  const dataverseTable = document.getElementById('cfg-dv-table')?.value.trim() || 'cr_spares_shipments';
 
   return {
     mode: selectedMode,
     siteUrl,
-    listName,
-    dataverseUrl,
-    dataverseTable
+    listName
   };
 }
 
 function updateConfigSubcardVisibility(mode) {
   const spSubcard = document.getElementById('config-sharepoint-fields');
-  const dvSubcard = document.getElementById('config-dataverse-fields');
-
   if (spSubcard) spSubcard.style.display = (mode === 'sharepoint') ? 'block' : 'none';
-  if (dvSubcard) dvSubcard.style.display = (mode === 'dataverse') ? 'block' : 'none';
 }
 
 function openConfigModalUI() {
@@ -1087,12 +973,6 @@ function openConfigModalUI() {
 
   const spListInput = document.getElementById('cfg-sp-list');
   if (spListInput) spListInput.value = backendConfig.listName || 'AircraftSparesShipments';
-
-  const dvUrlInput = document.getElementById('cfg-dv-url');
-  if (dvUrlInput) dvUrlInput.value = backendConfig.dataverseUrl || 'https://org.crm.dynamics.com/api/data/v9.2';
-
-  const dvTableInput = document.getElementById('cfg-dv-table');
-  if (dvTableInput) dvTableInput.value = backendConfig.dataverseTable || 'cr_spares_shipments';
 
   const testStatus = document.getElementById('config-test-status');
   if (testStatus) {
