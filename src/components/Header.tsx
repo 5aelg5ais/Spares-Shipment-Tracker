@@ -42,7 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={onOpenConfigModal}
-            title="Configure SharePoint / Dataverse connection"
+            title="Configure SharePoint backend connection"
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer"
           >
             <Database className="w-3.5 h-3.5 text-slate-500" />

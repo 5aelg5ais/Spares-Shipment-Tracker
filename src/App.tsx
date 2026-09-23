@@ -176,14 +176,14 @@ export const App: React.FC = () => {
             const statusChanged = s.status !== data.status;
             const updatedHistory = statusChanged
               ? [
-                  {
-                    id: `hist-${Date.now()}`,
-                    status: data.status,
-                    timestamp: timeStr,
-                    description: `Status updated to ${data.status}.`,
-                  },
-                  ...s.history,
-                ]
+                {
+                  id: `hist-${Date.now()}`,
+                  status: data.status,
+                  timestamp: timeStr,
+                  description: `Status updated to ${data.status}.`,
+                },
+                ...s.history,
+              ]
               : s.history;
 
             return {

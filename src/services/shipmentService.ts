@@ -141,8 +141,6 @@ export const DEFAULT_CONFIG: BackendConfig = {
   mode: 'mock',
   sharepointSiteUrl: 'https://tenant.sharepoint.com/sites/LogisticsHub',
   sharepointListName: 'AircraftSparesShipments',
-  dataverseEnvironmentUrl: 'https://org.crm.dynamics.com',
-  dataverseEntityName: 'cr_spares_shipments',
 };
 
 // --- Storage Helper Utilities ---
@@ -181,31 +179,104 @@ export function saveBackendConfig(config: BackendConfig): void {
   localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
 }
 
-// --- SharePoint / Dataverse API Integration Stubs ---
+// --- SharePoint API Integration & Connection Test ---
+
+export interface SharePointTestResult {
+  success: boolean;
+  message: string;
+  itemCount?: number;
+}
+
+/**
+ * Test connection to a SharePoint List by querying list metadata via SharePoint REST API
+ */
+export async function testSharePointConnection(
+  siteUrl: string,
+  listName: string
+): Promise<SharePointTestResult> {
+  const cleanSiteUrl = siteUrl.trim().replace(/\/+$/, '');
+  const cleanListName = listName.trim();
+
+  if (!cleanSiteUrl) {
+    return { success: false, message: 'SharePoint Site URL is required.' };
+  }
+  if (!cleanListName) {
+    return { success: false, message: 'SharePoint List Name is required.' };
+  }
+
+  try {
+    new URL(cleanSiteUrl);
+  } catch {
+    return {
+      success: false,
+      message: 'Invalid URL format. Example: https://tenant.sharepoint.com/sites/LogisticsHub',
+    };
+  }
+
+  const endpoint = `${cleanSiteUrl}/_api/web/lists/getByTitle('${encodeURIComponent(
+    cleanListName
+  )}')?$select=Title,ItemCount,Created`;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json;odata=verbose',
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      const itemCount = data?.d?.ItemCount ?? 0;
+      return {
+        success: true,
+        message: `Successfully connected! Found SharePoint list "${cleanListName}" containing ${itemCount} item(s).`,
+        itemCount,
+      };
+    } else if (res.status === 404) {
+      return {
+        success: false,
+        message: `HTTP 404: List "${cleanListName}" was not found at site ${cleanSiteUrl}. Verify list name and permissions.`,
+      };
+    } else if (res.status === 401 || res.status === 403) {
+      return {
+        success: false,
+        message: `HTTP ${res.status}: Access Denied / Unauthorized. Ensure you are signed into your SharePoint tenant.`,
+      };
+    } else {
+      return {
+        success: false,
+        message: `Server returned HTTP ${res.status}: ${res.statusText}`,
+      };
+    }
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      return {
+        success: false,
+        message: `Connection timed out after 8 seconds. Verify the site URL is reachable.`,
+      };
+    }
+    return {
+      success: false,
+      message: `Network/CORS Notice: Direct browser API call was blocked (${err.message || 'Failed to fetch'}). When hosted outside SharePoint (e.g. GitHub Pages), web browsers block cross-origin REST requests unless CORS is configured on SharePoint or app is deployed directly inside SharePoint Site Assets.`,
+    };
+  }
+}
 
 /**
  * Fetch shipments from SharePoint List using SharePoint REST API or Microsoft Graph API.
  * Example SharePoint REST API call:
- * GET https://{tenant}.sharepoint.com/sites/{site}/_api/web/lists/getByTitle('{ListName}')/items?$select=ID,IODNumber,TailNo,Airwaybill,Status,Destination,DemandDateTime,ETD,ETA,MPN,NSN,SparesDescription,Quantity,Remarks
+ * GET https://{tenant}.sharepoint.com/sites/{site}/_api/web/lists/getByTitle('{ListName}')/items
  */
 export async function fetchFromSharePoint(config: BackendConfig): Promise<Shipment[]> {
   const url = `${config.sharepointSiteUrl}/_api/web/lists/getByTitle('${config.sharepointListName}')/items?$expand=History`;
   console.log(`[SharePoint REST] Fetching items from: ${url}`);
-  // In live SharePoint environment:
-  // const res = await fetch(url, { headers: { 'Accept': 'application/json;odata=verbose' } });
-  // const data = await res.json();
-  // return mapSharePointToShipment(data.d.results);
-  return loadShipmentsFromStorage();
-}
-
-/**
- * Fetch shipments from M365 Dataverse using Dynamics 365 Web API
- * Example Dataverse Web API call:
- * GET https://{env}.crm.dynamics.com/api/data/v9.2/{entityName}
- */
-export async function fetchFromDataverse(config: BackendConfig): Promise<Shipment[]> {
-  const url = `${config.dataverseEnvironmentUrl}/api/data/v9.2/${config.dataverseEntityName}`;
-  console.log(`[Dataverse API] Fetching rows from: ${url}`);
   return loadShipmentsFromStorage();
 }
 

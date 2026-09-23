@@ -38,12 +38,10 @@ export interface ShipmentFilterOptions {
   status: string;
 }
 
-export type DataBackendMode = 'mock' | 'sharepoint' | 'dataverse';
+export type DataBackendMode = 'mock' | 'sharepoint';
 
 export interface BackendConfig {
   mode: DataBackendMode;
   sharepointSiteUrl?: string;
   sharepointListName?: string;
-  dataverseEnvironmentUrl?: string;
-  dataverseEntityName?: string;
 }
