@@ -717,7 +717,7 @@ function renderSelectedShipmentCard() {
 
   if (!sel) {
     if (subtitleEl) subtitleEl.textContent = 'No shipment selected';
-    bodyEl.innerHTML = '<div style="grid-column: span 4; text-align: center; color: #94a3b8; padding: 24px;">Select a shipment from the queue below to inspect details.</div>';
+    bodyEl.innerHTML = '<div class="empty-state-card">Select a shipment from the queue below to inspect details.</div>';
     return;
   }
 
@@ -784,19 +784,19 @@ function renderQueueTable() {
   if (!tbody) return;
 
   if (isLoadingData) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #0284c7; padding: 32px;"><span class="spinner"></span> Synchronizing with backend API...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="table-loading-cell"><span class="spinner"></span> Synchronizing with backend API...</td></tr>';
     return;
   }
 
   let errorBannerHtml = '';
   if (apiErrorMessage) {
-    errorBannerHtml = `<tr><td colspan="5" style="padding: 12px 16px;"><div class="alert-banner error" style="margin: 0;">⚠️ ${apiErrorMessage}</div></td></tr>`;
+    errorBannerHtml = `<tr><td colspan="5" class="table-error-cell"><div class="alert-banner error no-margin">⚠️ ${apiErrorMessage}</div></td></tr>`;
   }
 
   const filtered = getFilteredShipments();
 
   if (filtered.length === 0) {
-    tbody.innerHTML = errorBannerHtml + '<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 32px;">No matching shipments found.</td></tr>';
+    tbody.innerHTML = errorBannerHtml + '<tr><td colspan="5" class="table-empty-cell">No matching shipments found.</td></tr>';
     return;
   }
 
@@ -839,7 +839,7 @@ function renderHistoryTimeline() {
   const sel = shipments.find(s => s.id === selectedId);
 
   if (!sel || !sel.history || sel.history.length === 0) {
-    container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 20px;">No history recorded for this shipment.</div>';
+    container.innerHTML = '<div class="empty-history-text">No history recorded for this shipment.</div>';
     return;
   }
 

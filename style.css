@@ -818,4 +818,43 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* Helper & Utility Classes */
+.hidden {
+  display: none;
+}
+
+.empty-state-card {
+  grid-column: span 4;
+  text-align: center;
+  color: #94A3B8;
+  padding: 24px;
+}
+
+.table-loading-cell {
+  text-align: center;
+  color: #0284C7;
+  padding: 32px;
+}
+
+.table-empty-cell {
+  text-align: center;
+  color: #94A3B8;
+  padding: 32px;
+}
+
+.table-error-cell {
+  padding: 12px 16px;
+}
+
+.alert-banner.error.no-margin {
+  margin: 0;
+}
+
+.empty-history-text {
+  text-align: center;
+  color: #94A3B8;
+  padding: 20px;
+}
+
+
 
