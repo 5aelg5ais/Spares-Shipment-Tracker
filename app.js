@@ -149,7 +149,10 @@ function loadConfig() {
   try {
     const raw = localStorage.getItem(CONFIG_STORAGE_KEY);
     return raw ? JSON.parse(raw) : {
-      mode: 'mock',
+      mode: 'turso',
+      tursoUrl: '',
+      tursoAuthToken: 'libsql://spareshipmenttracker-5ais.aws-ap-northeast-1.turso.io',
+      tursoTable: 'tbl_spares',
       siteUrl: window.location.origin && window.location.origin !== 'null' ? `${window.location.origin}/sites/LogisticsHub` : 'https://tenant.sharepoint.com/sites/LogisticsHub',
       listName: 'AircraftSparesShipments',
       dataverseUrl: 'https://org.crm.dynamics.com/api/data/v9.2',
@@ -157,7 +160,10 @@ function loadConfig() {
     };
   } catch {
     return {
-      mode: 'mock',
+      mode: 'turso',
+      tursoUrl: '',
+      tursoAuthToken: '',
+      tursoTable: 'shipments',
       siteUrl: 'https://tenant.sharepoint.com/sites/LogisticsHub',
       listName: 'AircraftSparesShipments',
       dataverseUrl: 'https://org.crm.dynamics.com/api/data/v9.2',
@@ -507,11 +513,260 @@ const DataverseService = {
   }
 };
 
+// --- Turso Database libSQL HTTP API Service ---
+function parseTursoValue(valObj) {
+  if (valObj === null || valObj === undefined) return null;
+  if (typeof valObj !== 'object') return valObj;
+  if (valObj.type === 'null') return null;
+  if ('value' in valObj) {
+    if (valObj.type === 'integer' || valObj.type === 'numeric') {
+      return Number(valObj.value);
+    }
+    return valObj.value;
+  }
+  if ('base64' in valObj) return valObj.base64;
+  return null;
+}
+
+function parseTursoResult(execResult) {
+  const cols = (execResult.cols || []).map(c => c.name);
+  const rawRows = execResult.rows || [];
+  return rawRows.map(rowArray => {
+    const obj = {};
+    cols.forEach((colName, idx) => {
+      obj[colName] = parseTursoValue(rowArray[idx]);
+    });
+    return obj;
+  });
+}
+
+function toTursoArg(val) {
+  if (val === null || val === undefined) return { type: 'null' };
+  if (typeof val === 'number') {
+    if (Number.isInteger(val)) {
+      return { type: 'integer', value: String(val) };
+    }
+    return { type: 'float', value: val };
+  }
+  if (typeof val === 'boolean') {
+    return { type: 'integer', value: val ? '1' : '0' };
+  }
+  return { type: 'text', value: String(val) };
+}
+
+async function executeTursoRaw(config, sql, args = []) {
+  let dbUrl = (config.tursoUrl || '').trim();
+  if (!dbUrl) {
+    throw new Error('Turso Database URL is required. Please set it in Data Source Settings.');
+  }
+  dbUrl = dbUrl.replace(/^libsql:\/\//i, 'https://').replace(/^http:\/\//i, 'https://').replace(/\/$/, '');
+  if (!dbUrl.startsWith('https://')) {
+    dbUrl = 'https://' + dbUrl;
+  }
+
+  const token = (config.tursoAuthToken || '').trim();
+  const endpoint = `${dbUrl}/v2/pipeline`;
+
+  const formattedArgs = args.map(toTursoArg);
+
+  const body = {
+    requests: [
+      {
+        type: 'execute',
+        stmt: {
+          sql: sql,
+          args: formattedArgs
+        }
+      },
+      { type: 'close' }
+    ]
+  };
+
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: headers,
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Turso HTTP ${res.status}: ${res.statusText || ''} ${errText}`);
+  }
+
+  const data = await res.json();
+  const resultObj = data.results?.[0];
+  if (resultObj?.type === 'error') {
+    throw new Error(`Turso Error: ${resultObj.error?.message || JSON.stringify(resultObj.error)}`);
+  }
+
+  return resultObj?.response?.result;
+}
+
+async function executeTursoQuery(config, sql, args = []) {
+  const execRes = await executeTursoRaw(config, sql, args);
+  if (!execRes) return [];
+  return parseTursoResult(execRes);
+}
+
+const TursoService = {
+  mapItemFromTurso(item) {
+    let history = [];
+    const rawHist = item.history ?? item.status_history ?? item.StatusHistoryJSON ?? item.statushistoryjson;
+    if (rawHist) {
+      try {
+        history = typeof rawHist === 'string' ? JSON.parse(rawHist) : rawHist;
+      } catch {
+        history = [];
+      }
+    }
+
+    const notif = item.notificationActive ?? item.notification_active ?? item.NotificationActive ?? item.notificationactive;
+
+    return {
+      id: String(item.id || item.Id || item.ID || ''),
+      iodNumber: item.iodNumber || item.iod_number || item.Title || item.iodnumber || '',
+      tailNo: item.tailNo || item.tail_no || item.TailNo || item.tailno || '',
+      airwaybill: item.airwaybill || item.Airwaybill || '',
+      status: item.status || item.Status || 'Pending Airwaybill',
+      destination: item.destination || item.Destination || '',
+      demandDateTime: item.demandDateTime || item.demand_date_time || item.DemandDateTime || item.demanddatetime || '',
+      etd: item.etd || item.ETD || '',
+      eta: item.eta || item.ETA || '',
+      mpn: item.mpn || item.MPN || '',
+      nsn: item.nsn || item.NSN || '',
+      description: item.description || item.Description || item.SparesDescription || '',
+      quantity: parseInt(item.quantity ?? item.Quantity) || 1,
+      remarks: item.remarks || item.Remarks || '',
+      notificationActive: notif === true || notif === 1 || notif === '1' || notif === 'true',
+      history: Array.isArray(history) ? history : []
+    };
+  },
+
+  async getMatchedColumns(config, shipment) {
+    const tableName = config.tursoTable || 'shipments';
+    const sql = `SELECT * FROM ${tableName} LIMIT 1`;
+
+    let colNames = [];
+    try {
+      const rawRes = await executeTursoRaw(config, sql, []);
+      colNames = (rawRes?.cols || []).map(c => c.name);
+    } catch {
+      colNames = [];
+    }
+
+    if (!colNames.length) {
+      colNames = ['id', 'iodNumber', 'tailNo', 'airwaybill', 'status', 'destination', 'demandDateTime', 'etd', 'eta', 'mpn', 'nsn', 'description', 'quantity', 'remarks', 'notificationActive', 'history'];
+    }
+
+    const fieldMappings = {
+      id: ['id', 'ID', 'Id', 'shipment_id', 'shipmentId'],
+      iodNumber: ['iodNumber', 'iod_number', 'iodnumber', 'Title', 'title', 'IODNumber'],
+      tailNo: ['tailNo', 'tail_no', 'tailno', 'TailNo', 'TailNumber'],
+      airwaybill: ['airwaybill', 'Airwaybill', 'air_way_bill'],
+      status: ['status', 'Status'],
+      destination: ['destination', 'Destination'],
+      demandDateTime: ['demandDateTime', 'demand_date_time', 'demanddatetime', 'DemandDateTime'],
+      etd: ['etd', 'ETD'],
+      eta: ['eta', 'ETA'],
+      mpn: ['mpn', 'MPN'],
+      nsn: ['nsn', 'NSN'],
+      description: ['description', 'Description', 'spares_description', 'SparesDescription'],
+      quantity: ['quantity', 'Quantity'],
+      remarks: ['remarks', 'Remarks'],
+      notificationActive: ['notificationActive', 'notification_active', 'notificationactive', 'NotificationActive'],
+      history: ['history', 'status_history', 'statushistoryjson', 'StatusHistoryJSON', 'StatusHistory']
+    };
+
+    const matchedObj = {};
+    colNames.forEach(col => {
+      const colLower = col.toLowerCase();
+      let foundAppKey = null;
+
+      for (const [appKey, synonyms] of Object.entries(fieldMappings)) {
+        if (synonyms.some(s => s.toLowerCase() === colLower)) {
+          foundAppKey = appKey;
+          break;
+        }
+      }
+
+      if (foundAppKey) {
+        let val = shipment[foundAppKey];
+        if (foundAppKey === 'history') {
+          val = JSON.stringify(val || []);
+        } else if (foundAppKey === 'notificationActive') {
+          val = val ? 1 : 0;
+        } else if (val === undefined) {
+          val = null;
+        }
+        matchedObj[col] = val;
+      }
+    });
+
+    return matchedObj;
+  },
+
+  async fetchShipments(config) {
+    const tableName = config.tursoTable || 'shipments';
+    const sql = `SELECT * FROM ${tableName}`;
+    const rows = await executeTursoQuery(config, sql, []);
+    return rows.map(r => this.mapItemFromTurso(r));
+  },
+
+  async createShipment(config, shipment) {
+    const tableName = config.tursoTable || 'shipments';
+    const newId = shipment.id || `ship-${Date.now()}`;
+    const shipmentWithId = { ...shipment, id: newId };
+
+    const colMap = await this.getMatchedColumns(config, shipmentWithId);
+    const colNames = Object.keys(colMap);
+    const values = Object.values(colMap);
+
+    const placeholders = colNames.map(() => '?').join(', ');
+    const sql = `INSERT INTO ${tableName} (${colNames.join(', ')}) VALUES (${placeholders})`;
+
+    await executeTursoQuery(config, sql, values);
+    return shipmentWithId;
+  },
+
+  async updateShipment(config, shipment) {
+    const tableName = config.tursoTable || 'shipments';
+    const colMap = await this.getMatchedColumns(config, shipment);
+
+    const idColName = Object.keys(colMap).find(c => c.toLowerCase() === 'id') || 'id';
+    const idValue = shipment.id;
+
+    delete colMap[idColName];
+
+    const setAssignments = Object.keys(colMap).map(c => `${c} = ?`).join(', ');
+    const values = [...Object.values(colMap), idValue];
+
+    const sql = `UPDATE ${tableName} SET ${setAssignments} WHERE ${idColName} = ?`;
+
+    await executeTursoQuery(config, sql, values);
+    return shipment;
+  },
+
+  async deleteShipment(config, id) {
+    const tableName = config.tursoTable || 'shipments';
+    const sql = `DELETE FROM ${tableName} WHERE id = ? OR Id = ? OR ID = ?`;
+    await executeTursoQuery(config, sql, [id, id, id]);
+  }
+};
+
 // --- Unified Shipment Data Service ---
 const ShipmentDataService = {
   async fetchAll(config) {
-    const mode = config.mode || 'mock';
-    if (mode === 'sharepoint') {
+    const mode = config.mode || 'turso';
+    if (mode === 'turso') {
+      return await TursoService.fetchShipments(config);
+    } else if (mode === 'sharepoint') {
       return await SharePointService.fetchShipments(config);
     } else if (mode === 'dataverse') {
       return await DataverseService.fetchShipments(config);
@@ -521,10 +776,16 @@ const ShipmentDataService = {
   },
 
   async save(config, shipmentData) {
-    const mode = config.mode || 'mock';
+    const mode = config.mode || 'turso';
     const isEdit = !!shipmentData.id;
 
-    if (mode === 'sharepoint') {
+    if (mode === 'turso') {
+      if (isEdit) {
+        return await TursoService.updateShipment(config, shipmentData);
+      } else {
+        return await TursoService.createShipment(config, shipmentData);
+      }
+    } else if (mode === 'sharepoint') {
       if (isEdit) {
         return await SharePointService.updateShipment(config, shipmentData);
       } else {
@@ -552,8 +813,10 @@ const ShipmentDataService = {
   },
 
   async delete(config, id) {
-    const mode = config.mode || 'mock';
-    if (mode === 'sharepoint') {
+    const mode = config.mode || 'turso';
+    if (mode === 'turso') {
+      await TursoService.deleteShipment(config, id);
+    } else if (mode === 'sharepoint') {
       await SharePointService.deleteShipment(config, id);
     } else if (mode === 'dataverse') {
       await DataverseService.deleteShipment(config, id);
@@ -565,9 +828,16 @@ const ShipmentDataService = {
   },
 
   async testConnection(config) {
-    const mode = config.mode || 'mock';
+    const mode = config.mode || 'turso';
     if (mode === 'mock') {
       return { success: true, message: 'Local Mock mode active. Interactive prototype stored in LocalStorage.' };
+    } else if (mode === 'turso') {
+      try {
+        const list = await TursoService.fetchShipments(config);
+        return { success: true, message: `Successfully connected to Turso Database! Table "${config.tursoTable || 'shipments'}" loaded ${list.length} item(s).` };
+      } catch (e) {
+        return { success: false, message: `Turso Database Connection Error: ${e.message}` };
+      }
     } else if (mode === 'sharepoint') {
       try {
         const list = await SharePointService.fetchShipments(config);
@@ -1055,7 +1325,10 @@ function closeModal(id) {
 }
 
 function gatherConfigFromUI() {
-  const selectedMode = document.querySelector('input[name="backend-mode"]:checked')?.value || 'mock';
+  const selectedMode = document.querySelector('input[name="backend-mode"]:checked')?.value || 'turso';
+  const tursoUrl = document.getElementById('cfg-turso-url')?.value.trim() || '';
+  const tursoAuthToken = document.getElementById('cfg-turso-token')?.value.trim() || '';
+  const tursoTable = document.getElementById('cfg-turso-table')?.value.trim() || 'shipments';
   const siteUrl = document.getElementById('cfg-sp-site')?.value.trim() || '';
   const listName = document.getElementById('cfg-sp-list')?.value.trim() || 'AircraftSparesShipments';
   const dataverseUrl = document.getElementById('cfg-dv-url')?.value.trim() || 'https://org.crm.dynamics.com/api/data/v9.2';
@@ -1063,6 +1336,9 @@ function gatherConfigFromUI() {
 
   return {
     mode: selectedMode,
+    tursoUrl,
+    tursoAuthToken,
+    tursoTable,
     siteUrl,
     listName,
     dataverseUrl,
@@ -1071,9 +1347,11 @@ function gatherConfigFromUI() {
 }
 
 function updateConfigSubcardVisibility(mode) {
+  const tursoSubcard = document.getElementById('config-turso-fields');
   const spSubcard = document.getElementById('config-sharepoint-fields');
   const dvSubcard = document.getElementById('config-dataverse-fields');
 
+  if (tursoSubcard) tursoSubcard.style.display = (mode === 'turso') ? 'block' : 'none';
   if (spSubcard) spSubcard.style.display = (mode === 'sharepoint') ? 'block' : 'none';
   if (dvSubcard) dvSubcard.style.display = (mode === 'dataverse') ? 'block' : 'none';
 }
@@ -1081,6 +1359,15 @@ function updateConfigSubcardVisibility(mode) {
 function openConfigModalUI() {
   const modeRadio = document.querySelector(`input[name="backend-mode"][value="${backendConfig.mode}"]`);
   if (modeRadio) modeRadio.checked = true;
+
+  const tursoUrlInput = document.getElementById('cfg-turso-url');
+  if (tursoUrlInput) tursoUrlInput.value = backendConfig.tursoUrl || '';
+
+  const tursoTokenInput = document.getElementById('cfg-turso-token');
+  if (tursoTokenInput) tursoTokenInput.value = backendConfig.tursoAuthToken || '';
+
+  const tursoTableInput = document.getElementById('cfg-turso-table');
+  if (tursoTableInput) tursoTableInput.value = backendConfig.tursoTable || 'shipments';
 
   const spSiteInput = document.getElementById('cfg-sp-site');
   if (spSiteInput) spSiteInput.value = backendConfig.siteUrl || '';

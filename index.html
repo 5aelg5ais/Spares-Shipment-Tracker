@@ -33,14 +33,14 @@
           </p>
         </div>
         <div class="header-actions">
-          <button id="btn-mode-config" class="btn btn-secondary btn-icon" title="Configure Data Source / SharePoint">
+          <button id="btn-mode-config" class="btn btn-secondary btn-icon" title="Configure Data Source / Turso Database">
             <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
               stroke-linecap="round" stroke-linejoin="round">
               <ellipse cx="12" cy="5" rx="9" ry="3" />
               <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
               <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
             </svg>
-            <span>Mode: <strong id="current-mode-label" class="mode-text">MOCK</strong></span>
+            <span>Mode: <strong id="current-mode-label" class="mode-text">TURSO</strong></span>
           </button>
           <button id="btn-new-shipment" class="btn btn-primary btn-icon">
             <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -280,19 +280,26 @@
     </div>
   </div>
 
-  <!-- 3. SharePoint / Dataverse Config Modal -->
+  <!-- 3. Turso Database / Backend Config Modal -->
   <div id="modal-config" class="modal-backdrop hidden">
     <div class="modal-content modal-lg">
       <div class="modal-header">
-        <h3 class="modal-title">SharePoint / Dataverse Backend Settings</h3>
+        <h3 class="modal-title">Turso Database / Data Source Settings</h3>
         <button class="btn-close modal-close-trigger" type="button">&times;</button>
       </div>
       <div class="modal-body space-y">
         <div class="form-group">
-          <label class="form-label">Select Active Mode</label>
+          <label class="form-label">Select Active Data Source</label>
           <div class="mode-options-grid">
             <label class="mode-card">
-              <input type="radio" name="backend-mode" value="mock" checked />
+              <input type="radio" name="backend-mode" value="turso" checked />
+              <div class="mode-card-inner">
+                <strong>Turso Database</strong>
+                <span>Connects to Turso edge SQLite database over HTTPS.</span>
+              </div>
+            </label>
+            <label class="mode-card">
+              <input type="radio" name="backend-mode" value="mock" />
               <div class="mode-card-inner">
                 <strong>Local Mock</strong>
                 <span>Interactive prototype stored in browser LocalStorage.</span>
@@ -312,6 +319,28 @@
                 <span>Connects to Power Apps / Dynamics 365 Web API.</span>
               </div>
             </label>
+          </div>
+        </div>
+
+        <div id="config-turso-fields" class="config-subcard">
+          <h4 class="subcard-title">Turso Database Connection Details</h4>
+          <div class="form-group">
+            <label class="form-label">Turso Database URL <span class="req">*</span></label>
+            <input type="text" id="cfg-turso-url" class="form-control"
+              placeholder="https://spares-db-org.turso.io or libsql://spares-db-org.turso.io" />
+            <span class="text-xs text-muted" style="margin-top: 4px;">Your Turso database HTTPS endpoint.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Turso Auth Token <span class="req">*</span></label>
+            <input type="password" id="cfg-turso-token" class="form-control"
+              placeholder="eyJhbGciOiJIUzI1Ni..." />
+            <span class="text-xs text-muted" style="margin-top: 4px;">Bearer authorization token generated from Turso CLI / dashboard.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Table Name</label>
+            <input type="text" id="cfg-turso-table" class="form-control" value="shipments"
+              placeholder="shipments" />
+            <span class="text-xs text-muted" style="margin-top: 4px;">Name of the table storing shipment records.</span>
           </div>
         </div>
 
@@ -347,11 +376,9 @@
         <div id="config-test-status" class="alert-banner info hidden"></div>
 
         <div class="note-box">
-          <strong>Backend Data Integration Note:</strong><br />
-          Select <strong>SharePoint List</strong> or <strong>M365 Dataverse</strong> to store all shipment data
-          remotely. Make sure the list/table has columns corresponding to Title/iodnumber, TailNo, Airwaybill, Status,
-          Destination, DemandDateTime, ETD, ETA, MPN, NSN, Description, Quantity, Remarks, NotificationActive, and
-          StatusHistoryJSON.
+          <strong>Turso Database Data Integration:</strong><br />
+          Select <strong>Turso Database</strong> to sync all shipment data remotely using Turso SQLite.
+          Your table columns (e.g. <code class="code-tag">id</code>, <code class="code-tag">iodNumber</code>, <code class="code-tag">tailNo</code>, <code class="code-tag">airwaybill</code>, <code class="code-tag">status</code>, <code class="code-tag">destination</code>, <code class="code-tag">demandDateTime</code>, <code class="code-tag">etd</code>, <code class="code-tag">eta</code>, <code class="code-tag">mpn</code>, <code class="code-tag">nsn</code>, <code class="code-tag">description</code>, <code class="code-tag">quantity</code>, <code class="code-tag">remarks</code>, <code class="code-tag">notificationActive</code>, <code class="code-tag">history</code>) are automatically mapped.
         </div>
       </div>
       <div class="modal-footer">
