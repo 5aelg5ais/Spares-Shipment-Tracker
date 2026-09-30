@@ -5,6 +5,10 @@ import {
   saveShipmentsToStorage,
   loadBackendConfig,
   saveBackendConfig,
+  fetchShipments,
+  fetchStatusesFromTurso,
+  saveShipmentRemote,
+  deleteShipmentRemote,
   generateCSV,
   downloadCSV,
 } from './services/shipmentService';
@@ -21,8 +25,11 @@ import { AlertTriangle, Trash2 } from 'lucide-react';
 export const App: React.FC = () => {
   // --- Main State ---
   const [shipments, setShipments] = useState<Shipment[]>(() => loadShipmentsFromStorage());
+  const [dbStatuses, setDbStatuses] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>('ship-005'); // Default to IOD-2026-005 as in screenshot
   const [config, setConfig] = useState<BackendConfig>(() => loadBackendConfig());
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // --- Filter State ---
   const [filters, setFilters] = useState<ShipmentFilterOptions>({
@@ -38,14 +45,36 @@ export const App: React.FC = () => {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [deletingShipment, setDeletingShipment] = useState<Shipment | null>(null);
 
+  // Sync config to storage & reload shipments and statuses from Turso Database
+  useEffect(() => {
+    saveBackendConfig(config);
+    async function loadData() {
+      setIsLoading(true);
+      setErrorMessage(null);
+      try {
+        const [remoteData, fetchedStatuses] = await Promise.all([
+          fetchShipments(config),
+          fetchStatusesFromTurso(config),
+        ]);
+        setShipments(remoteData);
+        setDbStatuses(fetchedStatuses);
+        if (remoteData.length > 0 && (!selectedId || !remoteData.some(s => s.id === selectedId))) {
+          setSelectedId(remoteData[0].id);
+        }
+      } catch (err: any) {
+        console.error('Error fetching data from Turso:', err);
+        setErrorMessage(`Failed to load data from Turso (${err.message || err}).`);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadData();
+  }, [config]);
+
   // Sync to LocalStorage on change
   useEffect(() => {
     saveShipmentsToStorage(shipments);
   }, [shipments]);
-
-  useEffect(() => {
-    saveBackendConfig(config);
-  }, [config]);
 
   // Derived metrics
   const totalCount = shipments.length;
@@ -68,20 +97,19 @@ export const App: React.FC = () => {
   }, [shipments]);
 
   const statusOptions = useMemo(() => {
-    const list = [
+    const baseList = dbStatuses.length > 0 ? dbStatuses : [
       'Pending Airwaybill',
       'Delayed',
       'Pending Custom Clearance Letter',
       'In-Transit (Air-I)',
       'Delivered',
     ];
+    const set = new Set(baseList);
     shipments.forEach((s) => {
-      if (s.status && !list.includes(s.status)) {
-        list.push(s.status);
-      }
+      if (s.status) set.add(s.status);
     });
-    return list;
-  }, [shipments]);
+    return Array.from(set);
+  }, [dbStatuses, shipments]);
 
   // Filtered shipments
   const filteredShipments = useMemo(() => {
@@ -122,13 +150,21 @@ export const App: React.FC = () => {
     setFilters((prev) => ({ ...prev, ...partial }));
   };
 
-  const handleToggleNotification = (id: string, e: React.MouseEvent) => {
+  const handleToggleNotification = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    const target = shipments.find((s) => s.id === id);
+    if (!target) return;
+    const updated = { ...target, notificationActive: !target.notificationActive };
+
     setShipments((prev) =>
-      prev.map((s) =>
-        s.id === id ? { ...s, notificationActive: !s.notificationActive } : s
-      )
+      prev.map((s) => (s.id === id ? updated : s))
     );
+
+    try {
+      await saveShipmentRemote(config, updated, true);
+    } catch (err) {
+      console.error('Error toggling notification on remote database:', err);
+    }
   };
 
   const handleOpenNewModal = () => {
@@ -152,7 +188,7 @@ export const App: React.FC = () => {
     setDeletingShipment(shipment);
   };
 
-  const handleSaveShipment = (
+  const handleSaveShipment = async (
     data: Omit<Shipment, 'id' | 'history'> & { id?: string }
   ) => {
     const now = new Date();
@@ -168,39 +204,44 @@ export const App: React.FC = () => {
         minute: '2-digit',
       });
 
+    let shipmentToSave: Shipment;
+    const isEdit = !!data.id;
+
     if (data.id) {
       // Edit existing
-      setShipments((prev) =>
-        prev.map((s) => {
-          if (s.id === data.id) {
-            const statusChanged = s.status !== data.status;
-            const updatedHistory = statusChanged
-              ? [
-                {
-                  id: `hist-${Date.now()}`,
-                  status: data.status,
-                  timestamp: timeStr,
-                  description: `Status updated to ${data.status}.`,
-                },
-                ...s.history,
-              ]
-              : s.history;
+      const existing = shipments.find((s) => s.id === data.id);
+      const statusChanged = existing ? existing.status !== data.status : false;
+      const updatedHistory = existing
+        ? statusChanged
+          ? [
+              {
+                id: `hist-${Date.now()}`,
+                status: data.status,
+                timestamp: timeStr,
+                description: `Status updated to ${data.status}.`,
+              },
+              ...existing.history,
+            ]
+          : existing.history
+        : [];
 
-            return {
-              ...s,
-              ...data,
-              history: updatedHistory,
-            };
-          }
-          return s;
-        })
+      shipmentToSave = {
+        ...data,
+        id: data.id,
+        notificationActive: existing?.notificationActive ?? false,
+        history: updatedHistory,
+      };
+
+      setShipments((prev) =>
+        prev.map((s) => (s.id === data.id ? shipmentToSave : s))
       );
     } else {
       // Create new
       const newId = `ship-${Date.now()}`;
-      const newShipment: Shipment = {
+      shipmentToSave = {
         ...data,
         id: newId,
+        notificationActive: false,
         history: [
           {
             id: `hist-${Date.now()}`,
@@ -210,12 +251,23 @@ export const App: React.FC = () => {
           },
         ],
       };
-      setShipments((prev) => [newShipment, ...prev]);
+
+      setShipments((prev) => [shipmentToSave, ...prev]);
       setSelectedId(newId);
+    }
+
+    try {
+      const saved = await saveShipmentRemote(config, shipmentToSave, isEdit);
+      if (!isEdit && saved && saved.id) {
+        setShipments((prev) => prev.map((s) => (s.id === shipmentToSave.id ? saved : s)));
+        setSelectedId(saved.id);
+      }
+    } catch (err: any) {
+      alert(`Notice: Remote database save error (${err.message || err}). Saved locally.`);
     }
   };
 
-  const handleSaveStatusUpdate = (
+  const handleSaveStatusUpdate = async (
     shipmentId: string,
     newStatus: ShipmentStatus,
     eventDescription: string
@@ -233,35 +285,49 @@ export const App: React.FC = () => {
         minute: '2-digit',
       });
 
+    const target = shipments.find((s) => s.id === shipmentId);
+    if (!target) return;
+
+    const updatedShipment: Shipment = {
+      ...target,
+      status: newStatus,
+      history: [
+        {
+          id: `hist-${Date.now()}`,
+          status: newStatus,
+          timestamp: timeStr,
+          description: eventDescription,
+        },
+        ...target.history,
+      ],
+    };
+
     setShipments((prev) =>
-      prev.map((s) => {
-        if (s.id === shipmentId) {
-          return {
-            ...s,
-            status: newStatus,
-            history: [
-              {
-                id: `hist-${Date.now()}`,
-                status: newStatus,
-                timestamp: timeStr,
-                description: eventDescription,
-              },
-              ...s.history,
-            ],
-          };
-        }
-        return s;
-      })
+      prev.map((s) => (s.id === shipmentId ? updatedShipment : s))
     );
+
+    try {
+      await saveShipmentRemote(config, updatedShipment, true);
+    } catch (err: any) {
+      alert(`Notice: Status update saved locally (${err.message || err}).`);
+    }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deletingShipment) return;
-    setShipments((prev) => prev.filter((s) => s.id !== deletingShipment.id));
-    if (selectedId === deletingShipment.id) {
+    const idToDelete = deletingShipment.id;
+
+    setShipments((prev) => prev.filter((s) => s.id !== idToDelete));
+    if (selectedId === idToDelete) {
       setSelectedId(null);
     }
     setDeletingShipment(null);
+
+    try {
+      await deleteShipmentRemote(config, idToDelete);
+    } catch (err: any) {
+      console.error('Error deleting shipment remotely:', err);
+    }
   };
 
   const handleExportCSV = () => {

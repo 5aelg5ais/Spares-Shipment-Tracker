@@ -38,10 +38,8 @@ export interface ShipmentFilterOptions {
   status: string;
 }
 
-export type DataBackendMode = 'mock' | 'sharepoint';
-
 export interface BackendConfig {
-  mode: DataBackendMode;
-  sharepointSiteUrl?: string;
-  sharepointListName?: string;
+  tursoUrl: string;
+  tursoAuthToken: string;
+  tursoTable: string;
 }

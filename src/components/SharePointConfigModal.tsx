@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { BackendConfig, DataBackendMode } from '../types/shipment';
-import { testSharePointConnection, SharePointTestResult } from '../services/shipmentService';
-import { X, Database, CheckCircle2, Code2, Server, Loader2, AlertCircle, Wifi } from 'lucide-react';
+import { BackendConfig } from '../types/shipment';
+import { testTursoConnection, TursoTestResult } from '../services/shipmentService';
+import { X, Database, CheckCircle2, Code2, Loader2, AlertCircle, Wifi, Key, Table } from 'lucide-react';
 
 interface SharePointConfigModalProps {
   isOpen: boolean;
@@ -18,20 +18,25 @@ export const SharePointConfigModal: React.FC<SharePointConfigModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const [mode, setMode] = useState<DataBackendMode>(config.mode);
-  const [siteUrl, setSiteUrl] = useState(config.sharepointSiteUrl || '');
-  const [listName, setListName] = useState(config.sharepointListName || '');
+  const [tursoUrl, setTursoUrl] = useState(config.tursoUrl || 'https://spareshipmenttracker-5ais.aws-ap-northeast-1.turso.io');
+  const [tursoAuthToken, setTursoAuthToken] = useState(config.tursoAuthToken || '');
+  const [tursoTable, setTursoTable] = useState(config.tursoTable || 'tbl_shipment_details');
   const [activeTab, setActiveTab] = useState<'config' | 'snippets'>('config');
 
   // Test connection state
   const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<SharePointTestResult | null>(null);
+  const [testResult, setTestResult] = useState<TursoTestResult | null>(null);
 
   const handleTestConnection = async () => {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const result = await testSharePointConnection(siteUrl, listName);
+      const tempConfig: BackendConfig = {
+        tursoUrl,
+        tursoAuthToken,
+        tursoTable,
+      };
+      const result = await testTursoConnection(tempConfig);
       setTestResult(result);
     } catch (err: any) {
       setTestResult({
@@ -46,9 +51,9 @@ export const SharePointConfigModal: React.FC<SharePointConfigModalProps> = ({
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     onSaveConfig({
-      mode,
-      sharepointSiteUrl: siteUrl,
-      sharepointListName: listName,
+      tursoUrl,
+      tursoAuthToken,
+      tursoTable,
     });
     onClose();
   };
@@ -61,7 +66,7 @@ export const SharePointConfigModal: React.FC<SharePointConfigModalProps> = ({
           <div className="flex items-center gap-2">
             <Database className="w-5 h-5 text-[#004B87]" />
             <h3 className="text-base font-bold text-slate-900">
-              Data Backend & SharePoint Settings
+              Turso Database Configuration
             </h3>
           </div>
           <button
@@ -82,7 +87,7 @@ export const SharePointConfigModal: React.FC<SharePointConfigModalProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            Backend Mode & Connection Info
+            Turso Database Connection Details
           </button>
           <button
             onClick={() => setActiveTab('snippets')}
@@ -92,137 +97,110 @@ export const SharePointConfigModal: React.FC<SharePointConfigModalProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            Integration Code Snippets & Schema
+            Table Schema Reference
           </button>
         </div>
 
         {/* Content */}
         {activeTab === 'config' ? (
           <form onSubmit={handleSave} className="p-6 space-y-5 overflow-y-auto flex-1">
-            {/* Mode Select */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-2">
-                Active Data Source Mode
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setMode('mock')}
-                  className={`p-3 rounded-lg border text-left flex flex-col gap-1 transition-all cursor-pointer ${
-                    mode === 'mock'
-                      ? 'border-[#004B87] bg-sky-50/50 text-[#004B87] ring-1 ring-[#004B87]'
-                      : 'border-slate-200 hover:border-slate-300 text-slate-700'
-                  }`}
-                >
-                  <span className="text-xs font-bold uppercase flex items-center justify-between">
-                    Local / Prototype Mock
-                    {mode === 'mock' && <CheckCircle2 className="w-3.5 h-3.5 text-[#004B87]" />}
-                  </span>
-                  <span className="text-[11px] text-slate-500 font-normal">
-                    Interactive prototype with LocalStorage persistence.
-                  </span>
-                </button>
+            <div className="p-4 rounded-lg bg-sky-50/50 border border-sky-100 space-y-4">
+              <h4 className="text-xs font-bold text-[#004B87] flex items-center gap-1.5">
+                <Database className="w-4 h-4" />
+                Turso Connection Parameters
+              </h4>
 
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Turso Database Host URL
+                </label>
+                <input
+                  type="text"
+                  value={tursoUrl}
+                  onChange={(e) => setTursoUrl(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#004B87] focus:border-transparent font-mono"
+                  placeholder="libsql://spareshipmenttracker-5ais.aws-ap-northeast-1.turso.io"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Your Turso database HTTPS endpoint.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Turso Auth Token (Bearer Key)</span>
+                  <span className="text-slate-400 font-normal text-[11px] flex items-center gap-1">
+                    <Key className="w-3 h-3" /> Insert JWT Auth Token here
+                  </span>
+                </label>
+                <input
+                  type="password"
+                  value={tursoAuthToken}
+                  onChange={(e) => setTursoAuthToken(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#004B87] focus:border-transparent font-mono"
+                  placeholder="eyJhbGciOiJIUzI1Ni..."
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Authorization Bearer token generated via <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800 font-mono">turso db tokens create spareshipmenttracker</code> or Turso Dashboard.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1 flex items-center gap-1">
+                  <Table className="w-3.5 h-3.5 text-slate-500" />
+                  Table Name
+                </label>
+                <input
+                  type="text"
+                  value={tursoTable}
+                  onChange={(e) => setTursoTable(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#004B87] focus:border-transparent font-mono"
+                  placeholder="tbl_shipment_details"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Name of your SQLite table storing shipment records (e.g. <code className="bg-slate-200 px-1 py-0.5 rounded font-mono">tbl_shipment_details</code>).
+                </p>
+              </div>
+
+              {/* Test Connection Button */}
+              <div className="pt-1">
                 <button
                   type="button"
-                  onClick={() => setMode('sharepoint')}
-                  className={`p-3 rounded-lg border text-left flex flex-col gap-1 transition-all cursor-pointer ${
-                    mode === 'sharepoint'
-                      ? 'border-[#004B87] bg-sky-50/50 text-[#004B87] ring-1 ring-[#004B87]'
-                      : 'border-slate-200 hover:border-slate-300 text-slate-700'
-                  }`}
+                  onClick={handleTestConnection}
+                  disabled={isTesting || !tursoUrl.trim()}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-[#004B87] bg-white border border-[#004B87]/30 hover:bg-sky-50 rounded-lg transition-colors disabled:opacity-50 cursor-pointer shadow-2xs"
                 >
-                  <span className="text-xs font-bold uppercase flex items-center justify-between">
-                    SharePoint List
-                    {mode === 'sharepoint' && <CheckCircle2 className="w-3.5 h-3.5 text-[#004B87]" />}
-                  </span>
-                  <span className="text-[11px] text-slate-500 font-normal">
-                    Connects to SharePoint REST / PnP JS List API.
-                  </span>
+                  {isTesting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Wifi className="w-3.5 h-3.5" />
+                  )}
+                  <span>{isTesting ? 'Testing Connection...' : 'Test Connection'}</span>
                 </button>
               </div>
-            </div>
 
-            {/* Mode-specific Fields */}
-            {mode === 'sharepoint' && (
-              <div className="p-4 rounded-lg bg-sky-50/50 border border-sky-100 space-y-4">
-                <h4 className="text-xs font-bold text-[#004B87] flex items-center gap-1.5">
-                  <Server className="w-4 h-4" />
-                  SharePoint List Configuration
-                </h4>
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    SharePoint Site URL
-                  </label>
-                  <input
-                    type="text"
-                    value={siteUrl}
-                    onChange={(e) => setSiteUrl(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#004B87] focus:border-transparent"
-                    placeholder="https://tenant.sharepoint.com/sites/LogisticsHub"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
-                    SharePoint List Name
-                  </label>
-                  <input
-                    type="text"
-                    value={listName}
-                    onChange={(e) => setListName(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-[#004B87] focus:border-transparent"
-                    placeholder="AircraftSparesShipments"
-                  />
-                </div>
-
-                {/* Test Connection Button */}
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={handleTestConnection}
-                    disabled={isTesting || !siteUrl.trim() || !listName.trim()}
-                    className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-[#004B87] bg-white border border-[#004B87]/30 hover:bg-sky-50 rounded-lg transition-colors disabled:opacity-50 cursor-pointer shadow-2xs"
-                  >
-                    {isTesting ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Wifi className="w-3.5 h-3.5" />
-                    )}
-                    <span>{isTesting ? 'Testing Connection...' : 'Test Connection'}</span>
-                  </button>
-                </div>
-
-                {/* Connection Test Result Feedback */}
-                {testResult && (
-                  <div
-                    className={`p-3 rounded-lg border text-xs leading-relaxed transition-all flex items-start gap-2.5 ${
-                      testResult.success
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                        : 'bg-amber-50 border-amber-200 text-amber-900'
-                    }`}
-                  >
-                    {testResult.success ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    )}
-                    <div className="flex-1">
-                      <p className="font-semibold mb-0.5">
-                        {testResult.success ? 'Connection Successful' : 'Connection Status / Notice'}
-                      </p>
-                      <p className="font-normal opacity-90">{testResult.message}</p>
-                    </div>
+              {/* Connection Test Result Feedback */}
+              {testResult && (
+                <div
+                  className={`p-3 rounded-lg border text-xs leading-relaxed transition-all flex items-start gap-2.5 ${
+                    testResult.success
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : 'bg-amber-50 border-amber-200 text-amber-900'
+                  }`}
+                >
+                  {testResult.success ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-semibold mb-0.5">
+                      {testResult.success ? 'Connection Successful' : 'Connection Error / Notice'}
+                    </p>
+                    <p className="font-normal opacity-90">{testResult.message}</p>
                   </div>
-                )}
-              </div>
-            )}
-
-            {/* SharePoint relative path / GitHub hosting note */}
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-600 leading-relaxed space-y-1">
-              <p className="font-semibold text-slate-800">Hosting on GitHub Pages & SharePoint:</p>
-              <p>
-                This app uses relative base assets (<code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800 font-mono">base: "./"</code>) in <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800 font-mono">vite.config.ts</code>. You can deploy it to GitHub Pages or copy the compiled <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-800 font-mono">dist/</code> folder into any SharePoint Site Assets folder!
-              </p>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
@@ -237,7 +215,7 @@ export const SharePointConfigModal: React.FC<SharePointConfigModalProps> = ({
                 type="submit"
                 className="px-5 py-2 text-sm font-semibold text-white bg-[#0A2540] hover:bg-[#13355A] rounded-lg cursor-pointer shadow-sm"
               >
-                Save Backend Configuration
+                Save Database Configuration
               </button>
             </div>
           </form>
@@ -245,37 +223,28 @@ export const SharePointConfigModal: React.FC<SharePointConfigModalProps> = ({
           <div className="p-6 space-y-4 overflow-y-auto flex-1 font-mono text-xs">
             <div className="flex items-center gap-1.5 text-slate-700 font-sans font-bold text-sm">
               <Code2 className="w-4 h-4 text-sky-700" />
-              SharePoint REST API Sample Integration:
+              Turso Database Table Schema (<code className="text-sky-800">{tursoTable}</code>):
             </div>
             <pre className="bg-slate-900 text-sky-300 p-4 rounded-lg overflow-x-auto leading-relaxed">
-{`// SharePoint REST API Call Example
-import { sp } from "@pnp/sp/presets/all";
-
-export async function fetchSharePointShipments() {
-  const items = await sp.web.lists
-    .getByTitle("${listName || 'AircraftSparesShipments'}")
-    .items
-    .select("ID,Title,ACTailNo,Airwaybill,Status,DestinationDetachment,DemandDateTime,ETD,ETA,MPN,NSN,SparesDescription,Quantity,Remarks")
-    .get();
-
-  return items.map(item => ({
-    id: String(item.ID),
-    iodNumber: item.Title, // standard SharePoint Title field for IOD Number
-    tailNo: item.ACTailNo,
-    airwaybill: item.Airwaybill,
-    status: item.Status,
-    destination: item.DestinationDetachment,
-    demandDateTime: item.DemandDateTime,
-    etd: item.ETD,
-    eta: item.ETA,
-    mpn: item.MPN,
-    nsn: item.NSN,
-    description: item.SparesDescription,
-    quantity: item.Quantity,
-    remarks: item.Remarks,
-    history: []
-  }));
-}`}
+{`-- SQLite Table Schema for ${tursoTable}:
+CREATE TABLE IF NOT EXISTS ${tursoTable} (
+  id TEXT PRIMARY KEY,
+  iodNumber TEXT,          -- or iod_number / Title
+  tailNo TEXT,             -- or tail_no / TailNo / ac_tail_no
+  airwaybill TEXT,         -- or Airwaybill / awb
+  status TEXT,             -- or Status
+  destination TEXT,        -- or Destination / destination_detachment
+  demandDateTime TEXT,     -- or demand_date_time
+  etd TEXT,                -- or estimated_time_departure
+  eta TEXT,                -- or estimated_time_arrival
+  mpn TEXT,
+  nsn TEXT,
+  description TEXT,        -- or spares_description
+  quantity INTEGER,
+  remarks TEXT,
+  notificationActive INTEGER, -- 1 for true, 0 for false
+  history TEXT             -- JSON array string of event logs
+);`}
             </pre>
           </div>
         )}
@@ -283,3 +252,5 @@ export async function fetchSharePointShipments() {
     </div>
   );
 };
+
+
